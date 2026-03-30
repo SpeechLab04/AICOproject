@@ -3,3 +3,6 @@ backend/uploads/
 *.mov
 *.avi
 *.mkv
+.env
+uploads/
+temp_audio.mp3 # 변환용 임시 파일
