@@ -1,7 +1,21 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
+import sys
+from pathlib import Path
+from dotenv import load_dotenv
+
+# 프로젝트 루트 경로를 잡아서 llm 폴더를 인식하게 함
+BASE_DIR = Path(__file__).resolve().parent.parent
+if str(BASE_DIR) not in sys.path:
+    sys.path.append(str(BASE_DIR))
+
+# .env 로드
+load_dotenv(dotenv_path=BASE_DIR / ".env")
+
+# 반드시 위 경로 설정/환경변수 로드 아래에 있어야 함
+from llm.app.services.ai_feedback import get_ai_presentation_feedback
 
 app = FastAPI()
 
@@ -18,9 +32,11 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
+
 @app.get("/")
 def read_root():
     return {"message": "서버 연결 성공"}
+
 
 @app.post("/upload")
 async def upload_video(file: UploadFile = File(...)):
@@ -56,3 +72,15 @@ async def upload_video(file: UploadFile = File(...)):
             ]
         }
     }
+
+
+@app.post("/api/v1/ai/feedback")
+async def create_feedback(script: str):
+    """
+    프론트엔드에서 받은 스크립트를 AI로 분석하여 결과를 반환합니다.
+    """
+    try:
+        result = await get_ai_presentation_feedback(script)
+        return {"status": "success", "data": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
