@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
-from app.models.schemas import FeedbackInput, FeedbackOutput, ContentFeedback
-from app.services.ai_feedback import get_ai_presentation_feedback
-from app.services.scoring import calculate_delivery_score, calculate_final_score
+from llm.app.models.schemas import FeedbackInput, FeedbackOutput, ContentFeedback
+from llm.app.services.ai_feedback import get_ai_presentation_feedback
+from llm.app.services.scoring import calculate_delivery_score, calculate_final_score
 
 app = FastAPI(title="AICO AI Feedback API")
 

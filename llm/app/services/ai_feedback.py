@@ -1,9 +1,7 @@
 import json
 from openai import AsyncOpenAI
 from fastapi import HTTPException
-from app.core.config import OPENAI_API_KEY, OPENAI_MODEL
-
-client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+from llm.app.core.config import OPENAI_API_KEY, OPENAI_MODEL
 
 SYSTEM_PROMPT = """
 당신은 발표 코칭 전문가입니다.
@@ -58,6 +56,11 @@ JSON_SCHEMA = {
 }
 
 async def get_ai_presentation_feedback(script: str):
+    # 함수 실행 시점에 키를 확인하고 클라이언트를 생성해야 안전합니다.
+    if not OPENAI_API_KEY:
+        raise ValueError("API KEY가 로드되지 않았습니다.")
+        
+    client = AsyncOpenAI(api_key=OPENAI_API_KEY)
     try:
         response = await client.chat.completions.create(
             model=OPENAI_MODEL,
