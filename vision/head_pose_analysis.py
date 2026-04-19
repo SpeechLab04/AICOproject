@@ -28,8 +28,8 @@ def get_head_metrics(landmarks):
 
 def classify_head_direction(avg_x_offset, avg_y_ratio):
     front_x_threshold = 0.18
-    up_threshold = 0.47
-    down_threshold = 0.58
+    up_threshold = 0.44
+    down_threshold = 0.60
 
     # 좌우 먼저 판별
     if avg_x_offset > front_x_threshold:
@@ -44,7 +44,6 @@ def classify_head_direction(avg_x_offset, avg_y_ratio):
         return "down"
 
     return "front"
-
 
 def analyze_head_pose(video_path, buffer_size=15, show_video=True):
     cap = cv2.VideoCapture(video_path)
@@ -184,6 +183,11 @@ def analyze_head_pose(video_path, buffer_size=15, show_video=True):
                     2
                 )
 
+                cv2.putText(display_frame, f"x_offset: {avg_x_offset:.3f}", (20, 80),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+                cv2.putText(display_frame, f"y_ratio: {avg_y_ratio:.3f}", (20, 110),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+
                 cv2.imshow("Head Pose Analysis", display_frame)
                 key = cv2.waitKey(1) & 0xFF
                 if key == 27:  # ESC
@@ -217,7 +221,7 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         video_path = sys.argv[1]
     else:
-        video_path = "test_video.mp4"
+        video_path = "video/test_video.mp4"
 
     result = analyze_head_pose(video_path, buffer_size=10, show_video=True)
 
