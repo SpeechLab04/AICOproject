@@ -136,7 +136,7 @@ def analyze_video_presentation(video_path):
 # --- 실행 테스트 ---
 if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    target_video = os.path.join(current_dir, "Test.mp4")    
+    target_video = os.path.join(current_dir, "Test4.mp4")    
     
     print("🚀 발표 데이터 분석 및 JSON 구조화 시작...")
     result = analyze_video_presentation(target_video)
