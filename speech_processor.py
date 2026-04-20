@@ -1,6 +1,7 @@
 import os
 import re
 import ast
+import json  # JSON 출력을 위해 추가
 from moviepy import VideoFileClip
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -15,48 +16,33 @@ else:
     client = OpenAI(api_key=api_key)
 
 def verify_fillers_with_llm(full_text, potential_fillers):
-    """
-    [LLM 검증] 정규식으로 뽑은 후보들 중 문맥상 '진짜 추임새'만 골라냅니다.
-    (예: "그 책"의 '그'는 제외하고, "그... 저는"의 '그'만 포함)
-    """
-    if not potential_fillers:
-        return []
-
+    if not potential_fillers: return []
     unique_candidates = list(set(potential_fillers))
     
     prompt = f"""
     너는 발표 언어 분석 전문가야. 다음 문장에서 추출된 후보 단어들이 '의미 없는 추임새(필러워드)'인지, 
     아니면 문맥상 '의미가 있는 단어(지시 대명사 등)'인지 판별해줘.
-    
     [문장]: "{full_text}"
     [후보 단어들]: {unique_candidates}
-    
-    '그', '이제', '막' 등이 무언가를 지시하거나 수식하는 경우에는 리스트에서 제외해.
-    진짜 의미 없는 추임새인 단어만 파이썬 리스트 형식으로 응답해줘.
-    응답 예시: ["음", "어", "그"] (없으면 [] 반환)
+    진짜 의미 없는 추임새인 단어만 파이썬 리스트 형식으로 응답해줘. 예: ["음", "어"]
     """
-    
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini", # 비용 효율적인 모델 사용
+            model="gpt-4o-mini",
             messages=[{"role": "system", "content": "너는 정확한 언어 분석가야."},
                       {"role": "user", "content": prompt}],
             temperature=0
         )
-        
         content = response.choices[0].message.content
-        # 응답에서 리스트 형태만 추출
         match = re.search(r"\[.*\]", content)
         if match:
             verified_list = ast.literal_eval(match.group())
             return [word for word in potential_fillers if word in verified_list]
         return potential_fillers
-    except Exception as e:
-        print(f"⚠️ LLM 검증 실패(원본 유지): {e}")
+    except:
         return potential_fillers
 
 def get_wpm_feedback(wpm):
-    """[WPM 피드백] 속도 수치에 따른 전문 코칭 메시지 생성"""
     if wpm < 80:
         return {"status": "매우 느림", "color": "Gray", "feedback": "속도가 너무 느려 지루할 수 있습니다. 조금 더 활기차게 말해보세요."}
     elif 80 <= wpm < 100:
@@ -70,19 +56,15 @@ def get_wpm_feedback(wpm):
 
 def analyze_video_presentation(video_path):
     audio_temp_path = "temp_audio.mp3"
-    
     if not os.path.exists(video_path):
-        return {"error": f"파일을 찾을 수 없습니다: {video_path}"}
+        return {"success": False, "error": f"파일을 찾을 수 없습니다: {video_path}"}
 
     try:
-        # 1. 오디오 추출
-        print(f"--- 🛠️ 오디오 추출 중: {video_path} ---")
+        # 1. 오디오 추출 및 Whisper 분석
         video = VideoFileClip(video_path)
         video.audio.write_audiofile(audio_temp_path, bitrate="64k", logger=None)
         video.close()
         
-        # 2. Whisper STT (verbose_json 모드로 타임스탬프 확보)
-        print("--- 🎙️ Whisper AI 음성 분석 중... ---")
         with open(audio_temp_path, "rb") as audio_file:
             transcript = client.audio.transcriptions.create(
                 model="whisper-1",
@@ -96,87 +78,69 @@ def analyze_video_presentation(video_path):
         duration_sec = transcript.duration
         segments = transcript.segments
 
-        # 3. [E] Echo 분석 (정규식 후보 추출 -> LLM 문맥 검증)
+        # 2. [E] Echo & Filler 분석
         filler_patterns = ["음", "어", "그", "이제", "저기", "막"]
         filler_group = f"(?:{'|'.join(filler_patterns)})"
-        
-        # 1차 후보군 추출
         raw_pattern = rf"(?:^|[\s,?.!])({'|'.join(filler_patterns)})(?=$|[\s,?.!])"
         potential_fillers = re.findall(raw_pattern, full_text)
-        
-        # 2차 LLM 검증 (지시어 필터링)
-        print("--- 🤖 LLM 문맥 검증 진행 중... ---")
         verified_fillers = verify_fillers_with_llm(full_text, potential_fillers)
         
-        # 복합 반복 패턴 (예: "저는 어... 저는")
         echo_pattern = rf"(?:^|[\s,?.!])(\S+)(?:\s+{filler_group}[,?.!]?)*\s+\1(?=$|[\s,?.!])"
         echo_matches = [m.group(0).strip() for m in re.finditer(echo_pattern, full_text)]
 
-        # 4. [P] Pause 분석 (2초 이상 침묵)
+        # 3. [P] Pause 분석
         pauses = []
         for i in range(len(segments) - 1):
-            # 기존: segments[i+1]['start'] - segments[i]['end'] (에러 발생 지점)
-            # 수정: 객체 접근 방식(.start, .end)으로 변경
             gap = segments[i+1].start - segments[i].end 
             if gap >= 2.0:
-                pauses.append({
-                    "at": round(segments[i].end, 1), 
-                    "sec": round(gap, 1)
-                })
+                pauses.append({"at": round(segments[i].end, 1), "duration": round(gap, 1)})
 
-        # 5. [M] Modification 분석 (말 수정 키워드)
+        # 4. [M] Modification 분석
         mod_keywords = ["아니", "그게 아니라", "다시 말해서", "정정하자면"]
         mod_found = [word for word in mod_keywords if word in full_text]
 
-        # 6. [W] WPM 분석 및 피드백
+        # 5. [W] WPM 분석
         word_count = len(full_text.split())
-        wpm = word_count / (duration_sec / 60) if duration_sec > 0 else 0
+        wpm = round(word_count / (duration_sec / 60), 1) if duration_sec > 0 else 0
         wpm_eval = get_wpm_feedback(wpm)
 
+        # ✨ 데이터를 계층적으로 구조화 (프론트엔드 전달용)
         return {
             "success": True,
-            "text": full_text,
-            "metrics": {
-                "wpm": round(wpm, 1),
-                "wpm_info": wpm_eval,
+            "full_script": full_text,
+            "summary": {
+                "wpm": wpm,
+                "status": wpm_eval["status"],
+                "color": wpm_eval["color"],
+                "feedback": wpm_eval["feedback"],
+                "total_duration": round(duration_sec, 1)
+            },
+            "speech_habits": {
                 "filler_count": len(verified_fillers),
                 "filler_list": list(set(verified_fillers)),
                 "echo_count": len(echo_matches),
-                "echo_list": echo_matches,
+                "duplicate_details": echo_matches, # 팀원들에게 말한 그 이름!
+                "modification_count": len(mod_found),
+                "modification_list": mod_found
+            },
+            "timeline_events": {
                 "pause_count": len(pauses),
-                "pause_list": pauses,
-                "mod_count": len(mod_found),
-                "duration_sec": round(duration_sec, 1)
+                "pause_details": pauses
             }
         }
 
     except Exception as e:
         if os.path.exists(audio_temp_path): os.remove(audio_temp_path)
-        return {"error": str(e)}
+        return {"success": False, "error": str(e)}
 
 # --- 실행 테스트 ---
 if __name__ == "__main__":
-# 실행 중인 파일(speech_processor.py)의 절대 경로를 자동으로 계산합니다.
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    target_video = os.path.join(current_dir, "Test.mp4")    
+    target_video = os.path.join(current_dir, "Test4.mp4")    
     
-    #target_video = r""  # 📝 여기에 실제 영상 경로 입력!
-    
+    print("🚀 발표 데이터 분석 및 JSON 구조화 시작...")
     result = analyze_video_presentation(target_video)
 
-    if "success" in result:
-        m = result['metrics']
-        print("\n" + "="*60)
-        print("✅ EPM+WPM 통합 분석 리포트")
-        print("-" * 60)
-        print(f"📝 전체 스크립트:\n{result['text']}")
-        print("-" * 60)
-        print(f"🗣️ 속도: {m['wpm']} WPM ({m['wpm_info']['status']})")
-        print(f"💡 피드백: {m['wpm_info']['feedback']}")
-        print(f"⚠️ 추임새: {m['filler_count']}개 {m['filler_list']}")
-        print(f"🔁 반복: {m['echo_count']}회 {m['echo_list']}")
-        print(f"⏱️ 침묵: {m['pause_count']}회 발견")
-        print(f"🛠️ 수정: {m['mod_count']}회 감지")
-        print("="*60)
-    else:
-        print(f"❌ 에러 발생: {result['error']}")
+    # 📝 결과를 예쁜 JSON 형식으로 출력
+    # ensure_ascii=False를 해야 한글이 안 깨집니다.
+    print(json.dumps(result, indent=4, ensure_ascii=False))
