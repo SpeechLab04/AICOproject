@@ -5,6 +5,7 @@ import os
 import sys
 from pathlib import Path
 from dotenv import load_dotenv
+from .speech_processor import *
 
 # 프로젝트 루트 경로를 잡아서 llm 폴더를 인식하게 함
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -26,7 +27,8 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],
+    #allow_origins=["http://localhost:3000", "http://localhost:5173"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

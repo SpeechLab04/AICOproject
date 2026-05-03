@@ -42,6 +42,7 @@ def analyze_vision(video_path, situation="academic"):
         video_path,
         show_video=False,
         rotate_mode="ccw",
+        rotate_mode="none",
         smoothing_window=5
     )
 
@@ -50,6 +51,7 @@ def analyze_vision(video_path, situation="academic"):
         video_path,
         show_video=False,
         rotate_mode="ccw",
+        rotate_mode="none",
         smoothing_window=5
     )
 
@@ -59,6 +61,9 @@ def analyze_vision(video_path, situation="academic"):
         show_video=False,
         rotate_mode="ccw",
         smoothing_window=7
+        rotate_mode="none",
+        smoothing_window=7,
+        situation=situation,
     )
 
     head_score    = head_result.get("head_score",    50)
