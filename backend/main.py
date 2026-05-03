@@ -11,11 +11,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 if str(BASE_DIR) not in sys.path:
     sys.path.append(str(BASE_DIR))
 
+# ✅ 추가: vision 폴더 경로 추가 (Python이 vision 파일을 찾을 수 있게)
+if str(BASE_DIR / "vision") not in sys.path:
+    sys.path.append(str(BASE_DIR / "vision"))
+
 # .env 로드
 load_dotenv(dotenv_path=BASE_DIR / ".env")
 
 # 반드시 위 경로 설정/환경변수 로드 아래에 있어야 함
 from llm.app.services.ai_feedback import get_ai_presentation_feedback
+from vision_service import analyze_vision  # ✅ 추가: vision 분석 함수 import
 
 app = FastAPI()
 
@@ -46,15 +51,20 @@ async def upload_video(file: UploadFile = File(...)):
         content = await file.read()
         buffer.write(content)
 
+    vision_result = analyze_vision(file_path)  # ✅ 추가: 저장된 영상 실제 분석
+
     return {
         "message": "분석 완료",
         "filename": file.filename,
         "video_url": f"http://127.0.0.1:8000/uploads/{file.filename}",
         "total_score": 82,
         "summary": "전반적으로 안정적인 발표였으나 자세와 음성 표현에서 일부 보완이 필요합니다.",
-        "posture": {
-            "score": 78,
-            "feedback": "자세는 비교적 안정적이지만 고개 움직임이 다소 있었습니다."
+        "posture": {  # ✅ 수정: 더미 데이터 → 실제 분석 결과로 교체
+            "score": vision_result["delivery_score"],
+            "feedback": vision_result["delivery_feedback"],
+            "head_pose": vision_result["head_pose"],
+            "emotion": vision_result["emotion"],
+            "gaze": vision_result["gaze"],
         },
         "voice": {
             "score": 85,
