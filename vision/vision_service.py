@@ -41,7 +41,7 @@ def analyze_vision(video_path, situation="academic"):
     emotion_result = analyze_emotion(
         video_path,
         show_video=False,
-        rotate_mode="ccw",
+        rotate_mode="none",
         smoothing_window=5
     )
 
@@ -49,7 +49,7 @@ def analyze_vision(video_path, situation="academic"):
     gaze_result = analyze_gaze(
         video_path,
         show_video=False,
-        rotate_mode="ccw",
+        rotate_mode="none",
         smoothing_window=5
     )
 
@@ -57,7 +57,7 @@ def analyze_vision(video_path, situation="academic"):
     gesture_result = analyze_gesture(
         video_path,
         show_video=False,
-        rotate_mode="ccw",
+        rotate_mode="none",
         smoothing_window=7,
         situation=situation,
     )
