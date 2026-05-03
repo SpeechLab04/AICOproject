@@ -5,6 +5,7 @@ import os
 import sys
 from pathlib import Path
 from dotenv import load_dotenv
+from .speech_processor import *
 
 # 프로젝트 루트 경로를 잡아서 llm 폴더를 인식하게 함
 BASE_DIR = Path(__file__).resolve().parent.parent
