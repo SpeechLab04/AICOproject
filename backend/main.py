@@ -12,7 +12,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 if str(BASE_DIR) not in sys.path:
     sys.path.append(str(BASE_DIR))
 
-from llm.speech_processor import run_speech_analysis
+from speech.speech_processor import run_speech_analysis
 
 
 # ✅ 추가: vision 폴더 경로 추가 (Python이 vision 파일을 찾을 수 있게)
