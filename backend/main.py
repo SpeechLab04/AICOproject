@@ -12,6 +12,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 if str(BASE_DIR) not in sys.path:
     sys.path.append(str(BASE_DIR))
 
+from llm.speech_processor import run_speech_analysis
+
+
 # ✅ 추가: vision 폴더 경로 추가 (Python이 vision 파일을 찾을 수 있게)
 if str(BASE_DIR / "vision") not in sys.path:
     sys.path.append(str(BASE_DIR / "vision"))
@@ -53,6 +56,7 @@ async def upload_video(file: UploadFile = File(...)):
         content = await file.read()
         buffer.write(content)
 
+    speech_result = run_speech_analysis(file_path) # 음성 분석 추가
     vision_result = analyze_vision(file_path)  # ✅ 추가: 저장된 영상 실제 분석
 
     return {
@@ -69,14 +73,15 @@ async def upload_video(file: UploadFile = File(...)):
             "gaze": vision_result["gaze"],
         },
         "voice": {
-            "score": 85,
-            "speed_wpm": 128,
-            "filler_count": 3,
-            "feedback": "말속도는 적절하지만 필러어 사용을 조금 줄이면 더 좋습니다."
+            "score": speech_result["score"],
+            "speed_wpm": speech_result["speed_wpm"],
+            "filler_count": speech_result["filler_count"],
+            "feedback": speech_result["feedback"]
         },
         "script": {
             "score": 83,
             "summary": "발표 내용은 비교적 명확하게 전달되었습니다.",
+            "full_script": speech_result["script"],
             "questions": [
                 "이 발표의 핵심 기능은 무엇인가요?",
                 "기존 서비스와의 차별점은 무엇인가요?",
