@@ -3,3 +3,11 @@ uvicorn
 openai
 python-dotenv
 pydantic
+moviepy
+
+python-multipart
+opencv-python
+mediapipe
+sqlalchemy
+whisper
+openai-whisper
