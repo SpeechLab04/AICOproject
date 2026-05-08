@@ -62,8 +62,7 @@ async def upload_video(file: UploadFile = File(...)):
     return {
         "message": "분석 완료",
         "filename": file.filename,
-        "video_url": f"http://127.0.0.1:8000/uploads/{file.filename}",
-        "total_score": 82,
+        "video_url": f"https://aico-backend-a7bu.onrender.com/uploads/{file.filename}",        "total_score": 82,
         "summary": "전반적으로 안정적인 발표였으나 자세와 음성 표현에서 일부 보완이 필요합니다.",
         "posture": {  # ✅ 수정: 더미 데이터 → 실제 분석 결과로 교체
             "score": vision_result["delivery_score"],
