@@ -7,7 +7,6 @@ moviepy
 
 python-multipart
 opencv-python
-mediapipe==0.10.9
+mediapipe==0.10.14
 sqlalchemy
 whisper
-openai-whisper
