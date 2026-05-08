@@ -146,7 +146,7 @@ function App() {
         '이 발표는 AI 발표 코칭 서비스에 대한 설명입니다. 사용자는 영상을 업로드하고 자세, 음성, 스크립트 분석 결과를 받을 수 있습니다.'
 
       const feedbackResponse = await fetch(
-        `https://aico-backend-a7bu.onrender.com/api/v1/ai/feedback?script=${encodeURIComponent(tempScript)}`        {
+        `https://aico-backend-a7bu.onrender.com/api/v1/ai/feedback?script=${encodeURIComponent(tempScript)}`,{
           method: 'POST'
         }
       )
