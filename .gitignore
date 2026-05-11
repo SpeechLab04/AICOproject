@@ -6,3 +6,7 @@ backend/uploads/
 .env
 uploads/
 temp_audio.mp3 # 변환용 임시 파일
+.venv/
+__pycache__/
+*.pyc
+.vscode/

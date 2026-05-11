@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List
 from pydantic import BaseModel, Field
 
 class ContentFeedback(BaseModel):
@@ -8,15 +8,13 @@ class ContentFeedback(BaseModel):
 
 class FeedbackInput(BaseModel):
     script: str = Field(..., description="발표 스크립트")
-    wpm: Optional[float] = Field(None, description="말 속도")
-    filler_count: int = Field(0, description="필러워드 개수")
-    head_pose_score: Optional[float] = Field(None, ge=0, le=100)
-    eye_contact_score: Optional[float] = Field(None, ge=0, le=100)
+    # 교수님 선택 리스트만 필수/기본값으로 유지합니다.
+    selected_personas: List[str] = Field(default=["basic"], description="선택된 교수님 페르소나 리스트")
 
 class FeedbackOutput(BaseModel):
     summary: str
     expected_questions: List[str]
     content_feedback: ContentFeedback
     content_score: float
-    delivery_score: float
+    delivery_score: float  # 구조 유지를 위해 남겨두되, 0으로 처리하거나 추후 통합용으로 사용
     final_score: float
