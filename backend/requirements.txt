@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+openai
+python-dotenv
+pydantic
+moviepy
+
+python-multipart
+opencv-python
+mediapipe==0.10.14
+sqlalchemy
+whisper

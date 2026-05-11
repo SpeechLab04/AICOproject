@@ -1,84 +1,114 @@
-import cv2
-import json
+import time
+from head_pose_analysis import analyze_head_pose
+from emotion_analysis import analyze_emotion
+from gaze_analysis import analyze_gaze
+from gesture_analysis import analyze_gesture
 
-def analyze_video(video_path):
-    cap = cv2.VideoCapture(video_path)
 
-    if not cap.isOpened():
-        return {
-            "video_path": video_path,
-            "face_detected_frames": 0,
-            "total_frames": 0,
-            "message": "영상 파일을 열 수 없습니다."
-        }
+def calculate_delivery_score(head_score, emotion_score, gaze_score, gesture_score):
+    HEAD_WEIGHT    = 0.40
+    EMOTION_WEIGHT = 0.25
+    GAZE_WEIGHT    = 0.20
+    GESTURE_WEIGHT = 0.15
 
-    face_cascade = cv2.CascadeClassifier(
-        "vision/haarcascade_frontalface_default.xml"
-)
+    score = (
+        head_score     * HEAD_WEIGHT
+        + emotion_score  * EMOTION_WEIGHT
+        + gaze_score     * GAZE_WEIGHT
+        + gesture_score  * GESTURE_WEIGHT
+    )
+    return round(score)
 
-    total_frames = 0
-    face_detected_frames = 0
-    center_looking_frames = 0
 
-    while True:
-        ret, frame = cap.read()
-
-        if not ret:
-            break
-
-        total_frames += 1
-
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-        faces = face_cascade.detectMultiScale(
-            gray,
-            scaleFactor=1.1,
-            minNeighbors=5,
-            minSize=(30, 30)
-        )
-
-        if len(faces) > 0:
-            face_detected_frames += 1
-
-            for (x, y, w, h) in faces:
-                face_center_x = x + w / 2
-
-                frame_center_x = frame.shape[1] / 2
-
-                if abs(face_center_x - frame_center_x) < frame.shape[1] * 0.2:
-                    center_looking_frames += 1
-
-    cap.release()
-
-    if total_frames > 0:
-        face_detection_rate = round((face_detected_frames / total_frames) * 100, 2)
+def get_delivery_feedback(delivery_score):
+    if delivery_score >= 85:
+        return "고개 방향, 표정, 시선, 손동작이 전반적으로 안정적인 발표 태도입니다."
+    elif delivery_score >= 70:
+        return "전반적으로 무난한 발표 태도이지만, 일부 요소를 조금 더 보완하면 좋습니다."
+    elif delivery_score >= 50:
+        return "발표 태도는 무난하지만 시선, 표정, 손동작 관리에서 개선 여지가 있습니다."
     else:
-        face_detection_rate = 0
+        return "고개 방향, 표정, 시선, 손동작 전반에서 개선이 필요합니다."
 
-    if total_frames > 0:
-        center_looking_rate = round((center_looking_frames / total_frames) * 100, 2)
-    else:
-        center_looking_rate = 0
 
-    result = {
-    "영상 정보": {
-        "영상 경로": video_path,
-        "전체 프레임 수": total_frames
-    },
-    "분석 결과": {
-        "얼굴 검출 프레임 수": face_detected_frames,
-        "얼굴 검출률 (%)": face_detection_rate,
-        "정면 응시 프레임 수": center_looking_frames,
-        "정면 응시 비율 (%)": center_looking_rate,
-    },
-    "상태": "성공",
-    "메시지": "얼굴 검출 분석이 완료되었습니다."
+def analyze_vision(video_path, situation="academic"):
+    start = time.time()
+
+    print("=== 고개 방향 분석 시작 ===")
+    head_result = analyze_head_pose(video_path, show_video=False)
+
+    print("=== 표정 분석 시작 ===")
+    emotion_result = analyze_emotion(
+        video_path,
+        show_video=False,
+        #rotate_mode="ccw",
+        rotate_mode="none",
+        smoothing_window=5
+    )
+
+    print("=== 시선 방향 분석 시작 ===")
+    gaze_result = analyze_gaze(
+        video_path,
+        show_video=False,
+        #rotate_mode="ccw",
+        rotate_mode="none",
+        smoothing_window=5
+    )
+
+    print("=== 손동작 분석 시작 ===")
+    gesture_result = analyze_gesture(
+        video_path,
+        show_video=False,
+        rotate_mode="ccw",
+        smoothing_window=7
+    )
+
+    head_score    = head_result.get("head_score",    50)
+    emotion_score = emotion_result.get("emotion_score", 50)
+    gaze_score    = gaze_result.get("gaze_score",    50)
+    gesture_score = gesture_result.get("gesture_score", 50)
+
+    print(f"[디버깅] head_score    = {head_score}")
+    print(f"[디버깅] emotion_score = {emotion_score}")
+    print(f"[디버깅] gaze_score    = {gaze_score}")
+    print(f"[디버깅] gesture_score = {gesture_score}")
+
+    delivery_score    = calculate_delivery_score(
+        head_score, emotion_score, gaze_score, gesture_score
+    )
+    delivery_feedback = get_delivery_feedback(delivery_score)
+
+    elapsed = round(time.time() - start, 2)
+    return {
+        "head_pose":         head_result,
+        "emotion":           emotion_result,
+        "gaze":              gaze_result,
+        "gesture":           gesture_result,
+        "delivery_score":    delivery_score,
+        "delivery_feedback": delivery_feedback,
+        "analysis_time":     elapsed,
     }
-    
-
-    return result
 
 
 if __name__ == "__main__":
-    test_result = analyze_video("vision/test_video.mp4")
-    print(json.dumps(test_result, indent=4, ensure_ascii=False))
+    import sys
+    video_path = sys.argv[1] if len(sys.argv) > 1 else "video/test_video.mp4"
+    situation  = sys.argv[2] if len(sys.argv) > 2 else "academic"
+
+    result = analyze_vision(video_path, situation=situation)
+
+    print("\n=== 최종 Vision 결과 ===")
+    print(f"고개 점수:     {result['head_pose']['head_score']}")
+    print(f"고개 피드백:   {result['head_pose']['head_feedback']}")
+    print()
+    print(f"표정 점수:     {result['emotion']['emotion_score']}")
+    print(f"표정 피드백:   {result['emotion']['emotion_feedback']}")
+    print()
+    print(f"시선 점수:     {result['gaze']['gaze_score']}")
+    print(f"시선 피드백:   {result['gaze']['gaze_feedback']}")
+    print()
+    print(f"손동작 점수:   {result['gesture']['gesture_score']}")
+    print(f"손동작 피드백: {result['gesture']['gesture_feedback']}")
+    print()
+    print(f"최종 태도 점수:   {result['delivery_score']}")
+    print(f"최종 태도 피드백: {result['delivery_feedback']}")
