@@ -1,13 +1,8 @@
 backend/uploads/
 *.mp4
 *.mov
-*.avi
-*.mkv
 .env
-uploads/
 temp_audio.mp3 # 변환용 임시 파일
-
-=======
 
 # 가상환경
 .venv/
@@ -17,11 +12,5 @@ backend/.venv311/
 # 파이썬 캐시
 __pycache__/
 *.pyc
-.venv/
-.venv311/
-__pycache__/
-*.pyc
 *.pyo
 *.pyd
-.env
->>>>>>> d99a7ee0661369b6dad7ba5073075f6dcab7be21
