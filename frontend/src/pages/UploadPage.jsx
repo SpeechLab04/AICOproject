@@ -9,14 +9,17 @@ function UploadPage() {
 
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState("");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  const API_BASE_URL =
+    import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 
   const scenario =
     JSON.parse(localStorage.getItem("selectedScenario")) || {
       title: "학교 발표",
     };
 
-  const audiences =
-    JSON.parse(localStorage.getItem("selectedAudiences")) || [];
+  const audiences = JSON.parse(localStorage.getItem("selectedAudiences")) || [];
 
   const audienceText =
     audiences.length > 0
@@ -33,22 +36,56 @@ function UploadPage() {
       return;
     }
 
-    setSelectedFile(file);
     const url = URL.createObjectURL(file);
 
+    setSelectedFile(file);
     setPreviewUrl(url);
-
-    localStorage.setItem("uploadedVideoUrl", url);
   };
 
-  const handleAnalyze = () => {
+  const handleAnalyze = async () => {
     if (!selectedFile) {
       alert("분석할 영상을 먼저 선택해주세요.");
       return;
     }
 
-    localStorage.setItem("uploadedVideoName", selectedFile.name);
-    navigate("/dashboard");
+    setIsAnalyzing(true);
+
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+
+    const selectedAudiences =
+      JSON.parse(localStorage.getItem("selectedAudiences")) || [];
+
+    const selectedPersonas = selectedAudiences.map((item) => item.id);
+
+    formData.append("selected_personas", JSON.stringify(selectedPersonas));
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/upload`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("분석 실패");
+      }
+
+      const result = await response.json();
+
+      localStorage.setItem("analysisResult", JSON.stringify(result));
+      localStorage.setItem("uploadedVideoName", selectedFile.name);
+
+      if (result.video_url) {
+        localStorage.setItem("uploadedVideoUrl", result.video_url);
+      }
+
+      navigate("/dashboard");
+    } catch (error) {
+      console.error("분석 오류:", error);
+      alert("분석 중 오류가 발생했습니다.");
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   return (
@@ -212,6 +249,7 @@ function UploadPage() {
               MP4, MOV 등 발표 영상 파일을 선택해주세요.
             </p>
           </label>
+
           {previewUrl && (
             <video
               src={previewUrl}
@@ -227,6 +265,7 @@ function UploadPage() {
               }}
             />
           )}
+
           {selectedFile && (
             <div
               style={{
@@ -262,6 +301,7 @@ function UploadPage() {
 
           <button
             onClick={handleAnalyze}
+            disabled={isAnalyzing}
             style={{
               width: "100%",
               marginTop: "30px",
@@ -273,13 +313,13 @@ function UploadPage() {
               fontSize: isMobile ? "17px" : "20px",
               fontWeight: "900",
               boxShadow: "0 8px 20px rgba(107,181,166,0.25)",
-              cursor: "pointer",
+              cursor: isAnalyzing ? "not-allowed" : "pointer",
               transform: "translateY(0)",
               transition: "all 0.18s ease",
-              opacity: selectedFile ? 1 : 0.65,
+              opacity: selectedFile && !isAnalyzing ? 1 : 0.65,
             }}
             onMouseEnter={(e) => {
-              if (!selectedFile) return;
+              if (!selectedFile || isAnalyzing) return;
               e.currentTarget.style.transform = "translateY(-5px)";
               e.currentTarget.style.boxShadow =
                 "0 14px 28px rgba(107,181,166,0.35)";
@@ -290,7 +330,7 @@ function UploadPage() {
                 "0 8px 20px rgba(107,181,166,0.25)";
             }}
           >
-            분석 시작하기
+            {isAnalyzing ? "분석 중입니다..." : "분석 시작하기"}
           </button>
         </section>
       </main>
