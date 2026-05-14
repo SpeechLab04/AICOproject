@@ -54,20 +54,33 @@ def generate_system_prompt(selected_personas: List[str]):
 [현재 심사위원 구성]
 {persona_section}
 
-# Evaluation Criteria (내용 중심 루브릭)
-1. 구조와 논리성: 발표 목적의 명확성, 서론-본론-결론의 유기적 흐름.
-2. 타당성과 근거: 객관적 데이터 및 출처 인용 여부, 논리적 비약 검증.
-3. 질의응답 대응: 질문 핵심 파악 및 답변의 논리적 정확성.
+# Evaluation Rubric (엄격한 채점 기준)
+점수는 다음 3가지 항목을 각 100점 만점으로 평가한 후 평균을 낸다.
+
+1. 구조와 논리성 (40%):
+   - 도입부(인사, 주제 소개), 전개(핵심 내용, 근거), 결론(요약, 맺음말)이 명확히 구분되는가?
+   - 분량이 너무 짧거나(예: 3문장 미만) 구조가 생략된 경우 해당 항목은 최대 30점 이상 주지 마라.
+
+2. 타당성과 근거 (40%):
+   - 기술적 근거, 통계자료, 혹은 구체적인 구현 방법이 포함되어 있는가?
+   - 단순히 "서비스가 있다"고 나열만 하거나 논리적 근거가 없으면 40점 이하로 감점하라.
+
+3. 질의응답 및 표현 (20%):
+   - 청중이 이해하기 쉬운 용어를 사용하는가? 정보의 완결성이 있는가?
+
+# Scoring Mission (필독)
+- 매우 짧은 스크립트(예: 단순 인사 및 소개)의 경우, 절대 50점을 넘기지 마라.
+- 내용이 부실함에도 불구하고 높은 점수를 주는 '후한 평가'를 지양하고, 냉정하고 객관적인 학술적 잣대로 평가하라.
 
 # Instructions
 - 모든 응답은 한국어로 작성한다.
 - summary: 발표 전체 내용을 2~3문장으로 요약한다.
-- content_evaluation: 
-    - strength: 내용 면에서 우수한 점 3가지를 구체적 근거와 함께 작성하세요.
-    - weakness: 논리적 허점이나 보완점 3가지를 작성하세요.
-    - improvement: 다음 발표에서 즉시 적용 가능한 개선 조언 3가지를 작성하세요.
+- content_feedback: 
+    - strength: 내용 면에서 우수한 점 3가지를 '문자열 리스트' 형태로 작성하세요.
+    - weakness: 논리적 허점이나 보완점 3가지를 '문자열 리스트' 형태로 작성하세요.
+    - improvement: 다음 발표에서 즉시 개선 가능한 개선 조언 3가지를 '문자열 리스트' 형태로 작성하세요.
 - persona_questions: 선택된 심사위원마다 성향을 재현한 질문을 1개씩 생성한다.
-- scores: 내용 점수와 질의응답 점수를 각각 100점 만점으로 산출한다.
+- content_score: 위 루브릭에 따른 최종 평균 점수를 산출한다.
 """
 
 # 3. Structured Outputs를 위한 JSON 스키마
@@ -93,9 +106,9 @@ JSON_SCHEMA = {
             "content_feedback": { # 여기를 에러 메시지의 필드명과 일치시킵니다.
                 "type": "object",
                 "properties": {
-                    "strength": {"type": "string"},
-                    "weakness": {"type": "string"},
-                    "improvement": {"type": "string"}
+                    "strength": { "type": "array", "items": { "type": "string" } }, # 👈 string에서 array로 변경
+                    "weakness": { "type": "array", "items": { "type": "string" } },
+                    "improvement": { "type": "array", "items": { "type": "string" } }
                 },
                 "required": ["strength", "weakness", "improvement"],
                 "additionalProperties": False

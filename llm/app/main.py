@@ -33,7 +33,7 @@ async def create_feedback(data: FeedbackInput):
         return FeedbackOutput(
             summary=ai_res.get("summary", ""),
             # 교수님들의 질문 리스트 추출
-            expected_questions=[f"[{q['persona_type']}] {q['question']}" for q in ai_res.get("persona_questions", [])],
+            persona_questions=ai_res.get("persona_questions", []),
             # 강점, 약점, 개선점 상세 피드백
             content_feedback=ContentFeedback(**ai_res.get("content_feedback", {})),
             content_score=c_score,
