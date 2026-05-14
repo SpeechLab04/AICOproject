@@ -1,400 +1,301 @@
-import FeatureCard from '../components/FeatureCard'
-import StepItem from '../components/StepItem'
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Upload, FileVideo, CheckCircle } from "lucide-react";
+import Header from "../components/Header";
 
-function UploadPage({
-  fileInputRef,
-  selectedFile,
-  previewURL,
-  loading,
-  message,
-  onFileChange,
-  onButtonClick,
-  onUpload,
-  userEmail,
-  isLoggedIn,
-  onLoginClick,
-  onLogout
-}) {
+function UploadPage() {
+  const navigate = useNavigate();
+  const isMobile = window.innerWidth < 768;
+
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState("");
+
+  const scenario =
+    JSON.parse(localStorage.getItem("selectedScenario")) || {
+      title: "학교 발표",
+    };
+
+  const audiences =
+    JSON.parse(localStorage.getItem("selectedAudiences")) || [];
+
+  const audienceText =
+    audiences.length > 0
+      ? audiences.map((item) => item.name).join(", ")
+      : "선택 없음";
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+
+    if (!file) return;
+
+    if (!file.type.startsWith("video/")) {
+      alert("동영상 파일만 업로드할 수 있습니다.");
+      return;
+    }
+
+    setSelectedFile(file);
+    const url = URL.createObjectURL(file);
+
+    setPreviewUrl(url);
+
+    localStorage.setItem("uploadedVideoUrl", url);
+  };
+
+  const handleAnalyze = () => {
+    if (!selectedFile) {
+      alert("분석할 영상을 먼저 선택해주세요.");
+      return;
+    }
+
+    localStorage.setItem("uploadedVideoName", selectedFile.name);
+    navigate("/dashboard");
+  };
+
   return (
-    
     <div
       style={{
-        minHeight: '100vh',
-        background: 'linear-gradient(180deg, #f8faff 0%, #eff4ff 100%)',
-        fontFamily: 'Arial, sans-serif'
+        minHeight: "100vh",
+        background: "#F8FCFA",
+        color: "#2F3E46",
       }}
     >
-      <div
-        style={{
-          width: '100%',
-          maxWidth: '1180px',
-          margin: '0 auto',
-          padding: '16px',
-          boxSizing: 'border-box'
-        }}
-      >
-        <div
-  style={{
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: '12px',
-    flexWrap: 'wrap',
-    marginBottom: '16px'
-  }}
->
-  <div>
-    <p
-      style={{
-        margin: 0,
-        fontSize: '14px',
-        color: '#6b7280',
-        fontWeight: 'bold',
-        letterSpacing: '0.06em'
-      }}
-    >
-      AICO
-    </p>
-  </div>
+      <Header showBack />
 
-  {isLoggedIn ? (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '10px',
-        flexWrap: 'wrap'
-      }}
-    >
-      <span
+      <main
         style={{
-          color: '#374151',
-          fontSize: '14px'
+          maxWidth: "980px",
+          margin: "0 auto",
+          padding: isMobile ? "36px 22px 80px" : "54px 60px 100px",
         }}
       >
-        {userEmail}
-      </span>
-      <button
-        onClick={onLogout}
-        style={{
-          padding: '10px 14px',
-          borderRadius: '12px',
-          border: '1px solid #d1d5db',
-          backgroundColor: '#ffffff',
-          cursor: 'pointer',
-          fontWeight: 'bold'
-        }}
-      >
-        로그아웃
-      </button>
-    </div>
-  ) : (
-    <button
-      onClick={onLoginClick}
-      style={{
-        padding: '10px 16px',
-        borderRadius: '12px',
-        border: 'none',
-        backgroundColor: '#2563eb',
-        color: '#ffffff',
-        cursor: 'pointer',
-        fontWeight: 'bold'
-      }}
-    >
-      로그인
-    </button>
-  )}
-</div>
         <div
           style={{
-            backgroundColor: '#ffffff',
-            padding: '24px',
-            borderRadius: '22px',
-            marginBottom: '16px',
-            border: '1px solid #e5e7eb',
-            boxShadow: '0 6px 18px rgba(0,0,0,0.05)',
-            textAlign: 'center'
-          }}
-        >
-          <h1
-            style={{
-              margin: 0,
-              fontSize: 'clamp(28px, 4vw, 42px)',
-              fontWeight: 'bold',
-              color: '#111827',
-              lineHeight: '1.2'
-            }}
-          >
-            AI 발표 코치
-          </h1>
-          <p
-            style={{
-              margin: '10px 0 0 0',
-              color: '#4b5563',
-              fontSize: 'clamp(15px, 2vw, 20px)',
-              lineHeight: '1.6'
-            }}
-          >
-            언제 어디서든 발표 실력을 향상시켜보세요
-          </p>
-        </div>
-
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
-            gap: '16px',
-            alignItems: 'start'
+            textAlign: "center",
+            marginBottom: isMobile ? "36px" : "50px",
           }}
         >
           <div
             style={{
-              background: 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 55%, #1d4ed8 100%)',
-              borderRadius: '22px',
-              padding: '24px',
-              color: '#ffffff',
-              boxShadow: '0 10px 24px rgba(37, 99, 235, 0.22)',
-              boxSizing: 'border-box'
+              display: "inline-block",
+              background: "#C8E4D6",
+              color: "#4D8F82",
+              padding: isMobile ? "8px 16px" : "10px 22px",
+              borderRadius: "999px",
+              fontWeight: "800",
+              marginBottom: "22px",
+              fontSize: isMobile ? "13px" : "16px",
             }}
           >
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: '12px',
-                flexWrap: 'wrap'
-              }}
-            >
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <h2
-                  style={{
-                    margin: 0,
-                    fontSize: 'clamp(22px, 3vw, 30px)',
-                    fontWeight: 'bold',
-                    lineHeight: '1.35'
-                  }}
-                >
-                  발표 연습 시작하기
-                </h2>
-                <p
-                  style={{
-                    margin: '12px 0 0 0',
-                    fontSize: 'clamp(14px, 1.8vw, 18px)',
-                    lineHeight: '1.7',
-                    color: 'rgba(255,255,255,0.92)'
-                  }}
-                >
-                  AI가 당신의 발표를 분석하고 맞춤형 피드백을 제공합니다
-                </p>
-              </div>
+            영상 업로드
+          </div>
 
-              <div
-                style={{
-                  width: '76px',
-                  height: '76px',
-                  borderRadius: '50%',
-                  backgroundColor: 'rgba(255,255,255,0.16)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '34px',
-                  flexShrink: 0
-                }}
-              >
-                ⚡
-              </div>
-            </div>
+          <h2
+            style={{
+              fontSize: isMobile ? "36px" : "54px",
+              color: "#2D3A3A",
+              fontWeight: "900",
+              marginBottom: "16px",
+              lineHeight: "1.2",
+            }}
+          >
+            발표 영상을 업로드하세요
+          </h2>
 
+          <p
+            style={{
+              color: "#58706D",
+              fontSize: isMobile ? "16px" : "20px",
+              lineHeight: "1.7",
+              wordBreak: "keep-all",
+            }}
+          >
+            녹화된 발표 영상을 업로드하면 자세, 음성, 발표 내용을 분석합니다.
+          </p>
+
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "14px",
+              flexWrap: "wrap",
+              justifyContent: "center",
+              marginTop: "26px",
+              background: "white",
+              padding: isMobile ? "12px 18px" : "14px 28px",
+              borderRadius: "999px",
+              boxShadow: "0 8px 24px rgba(0,0,0,0.05)",
+              color: "#58706D",
+              fontSize: isMobile ? "14px" : "16px",
+            }}
+          >
+            <span>
+              시나리오:{" "}
+              <strong style={{ color: "#2D3A3A" }}>{scenario.title}</strong>
+            </span>
+            <span style={{ color: "#C8E4D6" }}>|</span>
+            <span>
+              청중:{" "}
+              <strong style={{ color: "#2D3A3A" }}>{audienceText}</strong>
+            </span>
+          </div>
+        </div>
+
+        <section
+          style={{
+            background: "white",
+            borderRadius: "32px",
+            padding: isMobile ? "32px 24px" : "48px",
+            boxShadow: "0 14px 38px rgba(0,0,0,0.08)",
+            textAlign: "center",
+          }}
+        >
+          <label
+            style={{
+              display: "block",
+              border: "2px dashed #C8E4D6",
+              borderRadius: "28px",
+              padding: isMobile ? "42px 20px" : "60px 30px",
+              background: "#F8FCFA",
+              cursor: "pointer",
+              transition: "all 0.18s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = "translateY(-5px)";
+              e.currentTarget.style.boxShadow =
+                "0 14px 30px rgba(107,181,166,0.16)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "translateY(0)";
+              e.currentTarget.style.boxShadow = "none";
+            }}
+          >
             <input
               type="file"
               accept="video/*"
-              ref={fileInputRef}
-              onChange={onFileChange}
-              style={{ display: 'none' }}
+              onChange={handleFileChange}
+              style={{ display: "none" }}
             />
 
-            <button
-              onClick={onButtonClick}
+            <div
               style={{
-                width: '100%',
-                marginTop: '20px',
-                backgroundColor: '#ffffff',
-                color: '#2563eb',
-                border: 'none',
-                borderRadius: '14px',
-                padding: '14px 16px',
-                fontSize: 'clamp(15px, 1.8vw, 18px)',
-                fontWeight: 'bold',
-                cursor: 'pointer'
+                width: isMobile ? "82px" : "100px",
+                height: isMobile ? "82px" : "100px",
+                borderRadius: "50%",
+                background: "#E5F4EF",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                margin: "0 auto 24px",
               }}
             >
-              🎥 영상 업로드하기
-            </button>
+              <Upload size={isMobile ? 42 : 52} color="#6BB5A6" />
+            </div>
 
-            {selectedFile && (
-              <p
-                style={{
-                  marginTop: '14px',
-                  fontSize: '14px',
-                  color: 'rgba(255,255,255,0.95)',
-                  lineHeight: '1.6',
-                  wordBreak: 'break-all'
-                }}
-              >
-                선택한 파일: <strong>{selectedFile.name}</strong>
-              </p>
-            )}
+            <h3
+              style={{
+                fontSize: isMobile ? "24px" : "30px",
+                fontWeight: "900",
+                marginBottom: "12px",
+                color: "#2D3A3A",
+              }}
+            >
+              동영상 파일 선택
+            </h3>
 
-            {previewURL && (
-              <div style={{ marginTop: '16px' }}>
-                <video
-                  width="100%"
-                  controls
+            <p
+              style={{
+                color: "#5C706C",
+                fontSize: isMobile ? "15px" : "17px",
+                lineHeight: "1.7",
+              }}
+            >
+              MP4, MOV 등 발표 영상 파일을 선택해주세요.
+            </p>
+          </label>
+          {previewUrl && (
+            <video
+              src={previewUrl}
+              controls
+              style={{
+                width: "100%",
+                borderRadius: "24px",
+                marginTop: "28px",
+                maxHeight: isMobile ? "260px" : "420px",
+                objectFit: "contain",
+                background: "black",
+                boxShadow: "0 12px 28px rgba(0,0,0,0.12)",
+              }}
+            />
+          )}
+          {selectedFile && (
+            <div
+              style={{
+                marginTop: "28px",
+                background: "#E5F4EF",
+                borderRadius: "22px",
+                padding: isMobile ? "20px" : "24px",
+                display: "flex",
+                alignItems: "center",
+                gap: "14px",
+                textAlign: "left",
+              }}
+            >
+              <FileVideo size={30} color="#6BB5A6" />
+              <div style={{ flex: 1 }}>
+                <strong
                   style={{
-                    borderRadius: '14px',
-                    backgroundColor: '#000',
-                    display: 'block',
-                    maxHeight: '340px',
-                    objectFit: 'contain'
+                    display: "block",
+                    color: "#2D3A3A",
+                    marginBottom: "4px",
+                    wordBreak: "break-all",
                   }}
                 >
-                  <source src={previewURL} type="video/mp4" />
-                </video>
-
-                <button
-                  onClick={onUpload}
-                  disabled={loading}
-                  style={{
-                    width: '100%',
-                    marginTop: '14px',
-                    backgroundColor: 'transparent',
-                    color: '#ffffff',
-                    border: '1px solid rgba(255,255,255,0.65)',
-                    borderRadius: '14px',
-                    padding: '13px 16px',
-                    fontSize: 'clamp(15px, 1.8vw, 17px)',
-                    fontWeight: 'bold',
-                    cursor: 'pointer'
-                  }}
-                >
-                  {loading ? '분석 준비 중...' : '분석 시작하기'}
-                </button>
+                  {selectedFile.name}
+                </strong>
+                <span style={{ color: "#5C706C", fontSize: "14px" }}>
+                  {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                </span>
               </div>
-            )}
+              <CheckCircle size={26} color="#6BB5A6" />
+            </div>
+          )}
 
-            {message && (
-              <p
-                style={{
-                  marginTop: '14px',
-                  fontWeight: 'bold',
-                  color: '#ffffff',
-                  fontSize: '14px'
-                }}
-              >
-                {message}
-              </p>
-            )}
-          </div>
-
-          <div
+          <button
+            onClick={handleAnalyze}
             style={{
-              display: 'grid',
-              gap: '16px',
-              minWidth: 0
+              width: "100%",
+              marginTop: "30px",
+              background: "#6BB5A6",
+              color: "white",
+              border: "none",
+              padding: isMobile ? "16px" : "18px",
+              borderRadius: "22px",
+              fontSize: isMobile ? "17px" : "20px",
+              fontWeight: "900",
+              boxShadow: "0 8px 20px rgba(107,181,166,0.25)",
+              cursor: "pointer",
+              transform: "translateY(0)",
+              transition: "all 0.18s ease",
+              opacity: selectedFile ? 1 : 0.65,
+            }}
+            onMouseEnter={(e) => {
+              if (!selectedFile) return;
+              e.currentTarget.style.transform = "translateY(-5px)";
+              e.currentTarget.style.boxShadow =
+                "0 14px 28px rgba(107,181,166,0.35)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "translateY(0)";
+              e.currentTarget.style.boxShadow =
+                "0 8px 20px rgba(107,181,166,0.25)";
             }}
           >
-            <div
-              style={{
-                backgroundColor: '#ffffff',
-                borderRadius: '22px',
-                padding: '20px',
-                border: '1px solid #e5e7eb',
-                boxShadow: '0 6px 18px rgba(0,0,0,0.05)',
-                boxSizing: 'border-box'
-              }}
-            >
-              <h2
-                style={{
-                  fontSize: 'clamp(18px, 2vw, 22px)',
-                  fontWeight: 'bold',
-                  marginTop: 0,
-                  marginBottom: '14px',
-                  color: '#111827',
-                  textAlign: 'center'
-                }}
-              >
-                주요 기능
-              </h2>
-
-              <div style={{ display: 'grid', gap: '12px' }}>
-                <FeatureCard
-                  icon="🎯"
-                  title="자세 분석"
-                  description="고개 각도와 얼굴 방향을 분석하여 청중과의 아이컨택을 개선합니다"
-                  bgColor="#dbeafe"
-                />
-                <FeatureCard
-                  icon="📈"
-                  title="음성 분석"
-                  description="말 속도, 필러어 사용 빈도를 측정하여 발표 습관을 교정합니다"
-                  bgColor="#dcfce7"
-                />
-                <FeatureCard
-                  icon="💬"
-                  title="AI 피드백"
-                  description="발표 내용을 요약하고 예상 질문을 생성하여 완벽한 준비를 돕습니다"
-                  bgColor="#f3e8ff"
-                />
-              </div>
-            </div>
-
-            <div
-              style={{
-                backgroundColor: '#ffffff',
-                borderRadius: '22px',
-                padding: '20px',
-                border: '1px solid #e5e7eb',
-                boxShadow: '0 6px 18px rgba(0,0,0,0.05)',
-                boxSizing: 'border-box'
-              }}
-            >
-              <h2
-                style={{
-                  fontSize: 'clamp(18px, 2vw, 22px)',
-                  fontWeight: 'bold',
-                  marginTop: 0,
-                  marginBottom: '14px',
-                  color: '#111827',
-                  textAlign: 'center'
-                }}
-              >
-                사용 방법
-              </h2>
-
-              <div style={{ display: 'grid', gap: '12px' }}>
-                <StepItem
-                  number="1"
-                  title="영상 업로드"
-                  description="발표 영상을 업로드하고 분석을 시작합니다"
-                />
-                <StepItem
-                  number="2"
-                  title="AI 분석 진행"
-                  description="자세, 음성, 스크립트 내용을 종합적으로 분석합니다"
-                />
-                <StepItem
-                  number="3"
-                  title="결과 확인"
-                  description="점수와 피드백, 예상 질문을 확인하고 발표를 개선합니다"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+            분석 시작하기
+          </button>
+        </section>
+      </main>
     </div>
-  )
+  );
 }
 
-export default UploadPage
+export default UploadPage;
