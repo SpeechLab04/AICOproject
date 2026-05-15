@@ -6,8 +6,7 @@ import shutil
 import uuid
 import librosa  # 추가
 import numpy as np # 추가
-from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import UploadFile, File, BackgroundTasks  # FastAPI 객체는 삭제
 from moviepy import VideoFileClip
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -17,15 +16,6 @@ load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=api_key)
 
-app = FastAPI()
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"], 
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 UPLOAD_DIR = "temp_uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
@@ -34,20 +24,15 @@ analysis_results = {}
 
 # --- 2. 분석 보조 함수들 ---
 
-# 생동감 및 단조로움 분석 함수 (추가)
 def analyze_speech_vibrancy(audio_path, segments):
     try:
         y, sr = librosa.load(audio_path)
         pitches, magnitudes = librosa.piptrack(y=y, sr=sr)
         
-        # 1. 전체 피치 값 추출
         all_pitch_values = [pitches[magnitudes[:, t].argmax(), t] for t in range(pitches.shape[1]) if pitches[magnitudes[:, t].argmax(), t] > 0]
-        
-        # 2. 전체 생동감 점수 계산 (표준편차 기반)
         total_std = np.std(all_pitch_values) if all_pitch_values else 0
-        vibrancy_score = min(100, round((total_std / 30) * 100)) # 30Hz 기준 100점
+        vibrancy_score = min(100, round((total_std / 30) * 100))
         
-        # 3. 구간별 단조로움 판별
         monotone_segments = []
         for seg in segments:
             start_sample, end_sample = int(seg['start'] * sr), int(seg['end'] * sr)
@@ -59,7 +44,7 @@ def analyze_speech_vibrancy(audio_path, segments):
             seg_pitches, seg_mags = librosa.piptrack(y=seg_audio, sr=sr)
             seg_values = [seg_pitches[seg_mags[:, t].argmax(), t] for t in range(seg_pitches.shape[1]) if seg_pitches[seg_mags[:, t].argmax(), t] > 0]
             
-            if seg_values and np.std(seg_values) < 15: # 15Hz 미만이면 단조로운 구간으로 기록
+            if seg_values and np.std(seg_values) < 15:
                 monotone_segments.append({"start": round(seg['start'], 1), "end": round(seg['end'], 1)})
         
         return vibrancy_score, monotone_segments
@@ -107,13 +92,10 @@ def get_wpm_feedback(wpm):
 
 # --- 3. 백그라운드 정밀 분석 로직 ---
 
-def run_detailed_analysis(file_id, full_text, segments, duration_sec, audio_path): # audio_path 추가
-    """지수님이 개발한 EPM 및 세부 분석 로직을 백그라운드에서 실행합니다."""
+def run_detailed_analysis(file_id, full_text, segments, duration_sec, audio_path):
     try:
-        # 0. 생동감/단조로움 분석 수행 (추가)
         vibrancy_score, monotone_timeline = analyze_speech_vibrancy(audio_path, segments)
 
-        # 1. 습관 분석 (Fillers, Echo, Modification)
         filler_patterns = ["음", "어", "그", "이제", "저기", "막"]
         filler_group = f"(?:{'|'.join(filler_patterns)})"
         raw_pattern = rf"(?:^|[\s,?.!])({'|'.join(filler_patterns)})(?=$|[\s,?.!])"
@@ -127,24 +109,21 @@ def run_detailed_analysis(file_id, full_text, segments, duration_sec, audio_path
         mod_keywords = ["아니", "그게 아니라", "다시 말해서", "정정하자면"]
         mod_found = [word for word in mod_keywords if word in full_text]
 
-        # 2. 흐름 분석 (Pauses)
         pauses = []
         for i in range(len(segments) - 1):
             gap = segments[i+1]['start'] - segments[i]['end'] 
             if gap >= 2.0:
                 pauses.append({"at": round(segments[i]['end'], 1), "duration": round(gap, 1)})
 
-        # 3. 속도 및 EPM 요약
         word_count = len(full_text.split())
         wpm = round(word_count / (duration_sec / 60), 1) if duration_sec > 0 else 0
         wpm_eval = get_wpm_feedback(wpm)
 
-        # 4. 결과 저장 (프론트엔드가 file_id로 조회 가능하도록)
         analysis_results[file_id] = {
             "success": True,
             "summary": {
                 "wpm": wpm,
-                "vibrancy_score": vibrancy_score, # 추가
+                "vibrancy_score": vibrancy_score,
                 "status": wpm_eval["status"],
                 "color": wpm_eval["color"],
                 "feedback": wpm_eval["feedback"],
@@ -161,35 +140,30 @@ def run_detailed_analysis(file_id, full_text, segments, duration_sec, audio_path
             "timeline_events": {
                 "pause_count": len(pauses),
                 "pause_details": pauses,
-                "monotone_sections": monotone_timeline # 추가
+                "monotone_sections": monotone_timeline
             }
         }
     except Exception as e:
         analysis_results[file_id] = {"success": False, "error": str(e)}
     finally:
-        # 모든 분석이 끝난 후 오디오 파일 삭제 (수정)
         if os.path.exists(audio_path): os.remove(audio_path)
 
-# --- 4. 메인 API 엔드포인트 ---
+# --- 4. 메인 비즈니스 로직 함수 (서버 라우터 대신 백엔드가 직접 호출할 함수) ---
 
-@app.post("/analyze")
-async def analyze_video(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
+def process_voice_analysis(file: UploadFile, background_tasks: BackgroundTasks):
     file_id = str(uuid.uuid4())
     video_path = os.path.join(UPLOAD_DIR, f"{file_id}_{file.filename}")
     audio_temp_path = os.path.join(UPLOAD_DIR, f"{file_id}_temp.mp3")
 
     try:
-        # 1. 파일 저장
         with open(video_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        # 2. 오디오 추출 및 정보 획득
         video = VideoFileClip(video_path)
         video.audio.write_audiofile(audio_temp_path, bitrate="64k", logger=None)
         duration_sec = video.duration
         video.close()
 
-        # 3. Whisper STT (텍스트 우선 추출)
         with open(audio_temp_path, "rb") as audio_file:
             transcript = client.audio.transcriptions.create(
                 model="whisper-1",
@@ -201,31 +175,23 @@ async def analyze_video(background_tasks: BackgroundTasks, file: UploadFile = Fi
         full_text = transcript.text
         segments_data = [{"start": s['start'], "end": s['end']} for s in transcript.segments]
 
-        # 4. 세부 분석을 백그라운드로 예약 (audio_temp_path 전달)
         background_tasks.add_task(run_detailed_analysis, file_id, full_text, segments_data, duration_sec, audio_temp_path)
 
-        # 5. 스크립트 즉시 반환
         return {
             "success": True,
             "file_id": file_id,
             "full_script": full_text,
-            "message": "스크립트 추출 완료. 질의응답을 시작하세요. 세부 분석은 진행 중입니다."
+            "message": "스크립트 추출 완료. 세부 분석 진행 중."
         }
 
     except Exception as e:
-        if os.path.exists(audio_temp_path): os.remove(audio_temp_path) # 에러 시 삭제
+        if os.path.exists(audio_temp_path): os.remove(audio_temp_path)
         return {"success": False, "error": str(e)}
     finally:
         if os.path.exists(video_path): os.remove(video_path)
-        # audio_temp_path 삭제는 백그라운드 태스크 내부(finally)로 이동함
 
-@app.get("/result/{file_id}")
-async def get_analysis_result(file_id: str):
+def get_voice_result(file_id: str):
     result = analysis_results.get(file_id)
     if not result:
-        return {"status": "processing", "message": "아직 분석 중입니다. 잠시만 기다려 주세요."}
+        return {"status": "processing", "message": "아직 분석 중입니다."}
     return result
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
