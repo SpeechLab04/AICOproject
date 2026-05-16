@@ -4,6 +4,10 @@ openai
 python-dotenv
 pydantic
 moviepy
+librosa
+soundfile
+numpy
+scipy
 
 python-multipart
 opencv-python
