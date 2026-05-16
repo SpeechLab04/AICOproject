@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Form
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
@@ -11,13 +11,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 if str(BASE_DIR) not in sys.path:
     sys.path.append(str(BASE_DIR))
 
-from speech.speech_processor import run_speech_analysis
-
 if str(BASE_DIR / "vision") not in sys.path:
     sys.path.append(str(BASE_DIR / "vision"))
 
 load_dotenv(dotenv_path=BASE_DIR / ".env")
 
+from speech.speech_processor import process_voice_analysis, get_voice_result
 from llm.app.services.ai_feedback import get_ai_presentation_feedback
 from vision_service import analyze_vision
 
@@ -44,6 +43,7 @@ def read_root():
 
 @app.post("/upload")
 async def upload_video(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     selected_personas: str = Form("[]")
 ):
@@ -54,53 +54,84 @@ async def upload_video(
     except Exception:
         selected_personas = []
 
-    with open(file_path, "wb") as buffer:
-        content = await file.read()
-        buffer.write(content)
+    try:
+        # 1. 업로드 파일 저장: vision 분석과 영상 URL 제공용
+        with open(file_path, "wb") as buffer:
+            content = await file.read()
+            buffer.write(content)
 
-    speech_result = run_speech_analysis(file_path)
-    vision_result = analyze_vision(file_path)
+        # 2. speech_processor.py 함수는 UploadFile을 직접 받기 때문에 포인터 되돌리기
+        file.file.seek(0)
 
-    ai_result = await get_ai_presentation_feedback(
-        script=speech_result["script"],
-        selected_personas=selected_personas
-    )
+        # 3. 음성 분석 실행
+        speech_result = process_voice_analysis(file, background_tasks)
 
-    c_score = ai_result.get("content_score", 0.0)
+        if not speech_result.get("success"):
+            raise HTTPException(
+                status_code=500,
+                detail=speech_result.get("error", "음성 분석 실패")
+            )
 
-    return {
-        "message": "분석 완료",
-        "filename": file.filename,
-        "video_url": f"https://aico-backend-a7bu.onrender.com/uploads/{file.filename}",
-        "total_score": ai_result.get("final_score", 82),
-        "summary": ai_result.get(
-            "summary",
-            "전반적으로 안정적인 발표였으나 일부 보완이 필요합니다."
-        ),
-        "posture": {
-            "score": vision_result["delivery_score"],
-            "feedback": vision_result["delivery_feedback"],
-            "head_pose": vision_result["head_pose"],
-            "emotion": vision_result["emotion"],
-            "gaze": vision_result["gaze"],
-        },
-        "voice": {
-            "score": speech_result["score"],
-            "speed_wpm": speech_result["speed_wpm"],
-            "filler_count": speech_result["filler_count"],
-            "feedback": speech_result["feedback"],
-        },
-        "script": {
-            "score": c_score,
-            "summary": ai_result.get("summary", ""),
-            "full_script": speech_result["script"],
-            "questions": ai_result.get("persona_questions", []),
-            "content_feedback": ai_result.get("content_feedback", {}),
-            "content_score": ai_result.get("content_score", 0),
-            "delivery_score": ai_result.get("delivery_score", 0),
-            "final_score": ai_result.get("final_score", 0),
+        script_text = speech_result.get("full_script", "")
+
+        # 4. 영상 분석 실행
+        vision_result = analyze_vision(file_path)
+
+        # 5. LLM 분석 실행
+        ai_result = await get_ai_presentation_feedback(
+            script=script_text,
+            selected_personas=selected_personas
+        )
+
+        c_score = ai_result.get("content_score", 0.0)
+
+        return {
+            "message": "분석 완료",
+            "filename": file.filename,
+            "video_url": f"https://aico-backend-a7bu.onrender.com/uploads/{file.filename}",
+            "total_score": ai_result.get("final_score", 82),
+            "summary": ai_result.get(
+                "summary",
+                "전반적으로 안정적인 발표였으나 일부 보완이 필요합니다."
+            ),
+            "posture": {
+                "score": vision_result.get("delivery_score", 0),
+                "feedback": vision_result.get("delivery_feedback", ""),
+                "head_pose": vision_result.get("head_pose", {}),
+                "emotion": vision_result.get("emotion", {}),
+                "gaze": vision_result.get("gaze", {}),
+            },
+            "voice": {
+                "score": 0,
+                "speed_wpm": 0,
+                "filler_count": 0,
+                "feedback": speech_result.get(
+                    "message",
+                    "음성 세부 분석 진행 중입니다."
+                ),
+                "file_id": speech_result.get("file_id"),
+            },
+            "script": {
+                "score": c_score,
+                "summary": ai_result.get("summary", ""),
+                "full_script": script_text,
+                "questions": ai_result.get("persona_questions", []),
+                "content_feedback": ai_result.get("content_feedback", {}),
+                "content_score": ai_result.get("content_score", 0),
+                "delivery_score": ai_result.get("delivery_score", 0),
+                "final_score": ai_result.get("final_score", 0),
+            }
         }
-    }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/result/{file_id}")
+async def get_analysis_result(file_id: str):
+    return get_voice_result(file_id)
 
 
 @app.post("/api/v1/ai/feedback")
