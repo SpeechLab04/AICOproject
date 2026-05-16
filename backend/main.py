@@ -68,6 +68,7 @@ async def upload_video(
         speech_result = process_voice_analysis(file, background_tasks)
 
         if not speech_result.get("success"):
+            print("SPEECH ERROR:", speech_result, flush=True)
             raise HTTPException(
                 status_code=500,
                 detail=speech_result.get("error", "음성 분석 실패")
@@ -124,10 +125,11 @@ async def upload_video(
             }
         }
 
-    except HTTPException:
+    except HTTPException as e:
+        print("HTTP ERROR:", e.detail, flush=True)
         raise
     except Exception as e:
-        print("UPLOAD ERROR:", str(e))
+        print("UPLOAD ERROR:", str(e), flush=True)
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
