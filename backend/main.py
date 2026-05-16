@@ -6,6 +6,7 @@ import sys
 import json
 from pathlib import Path
 from dotenv import load_dotenv
+import traceback
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 if str(BASE_DIR) not in sys.path:
@@ -126,6 +127,8 @@ async def upload_video(
     except HTTPException:
         raise
     except Exception as e:
+        print("UPLOAD ERROR:", str(e))
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
