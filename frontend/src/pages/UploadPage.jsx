@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Upload, FileVideo, CheckCircle } from "lucide-react";
 import Header from "../components/Header";
 
+
 function UploadPage() {
   const navigate = useNavigate();
   const isMobile = window.innerWidth < 768;
@@ -50,6 +51,11 @@ function UploadPage() {
     }
 
     setIsAnalyzing(true);
+
+
+    localStorage.removeItem("analysisResult");
+    localStorage.removeItem("uploadedVideoUrl");
+    localStorage.removeItem("uploadedVideoName");
 
     const formData = new FormData();
     formData.append("file", selectedFile);
