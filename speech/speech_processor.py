@@ -69,6 +69,7 @@ def verify_fillers_with_llm(full_text, potential_fillers):
                       {"role": "user", "content": prompt}],
             temperature=0
         )
+
         content = response.choices[0].message.content
         match = re.search(r"\[.*\]", content)
         if match:
@@ -173,7 +174,18 @@ def process_voice_analysis(file: UploadFile, background_tasks: BackgroundTasks):
             )
 
         full_text = transcript.text
-        segments_data = [{"start": s['start'], "end": s['end']} for s in transcript.segments]
+        def get_segment_value(segment, key, default=0):
+            if isinstance(segment, dict):
+                return segment.get(key, default)
+            return getattr(segment, key, default)
+
+        segments_data = [
+            {
+                "start": get_segment_value(s, "start", 0),
+                "end": get_segment_value(s, "end", 0),
+            }
+            for s in transcript.segments
+        ]
 
         background_tasks.add_task(run_detailed_analysis, file_id, full_text, segments_data, duration_sec, audio_temp_path)
 
