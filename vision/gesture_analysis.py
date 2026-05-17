@@ -11,12 +11,20 @@ mp_drawing_styles = mp.solutions.drawing_styles
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 VIDEO_PATH = os.path.join(BASE_DIR, "video", "test_video.mp4")
 
-ROTATE_MODE = "ccw"
+ROTATE_MODE = "180"
 SHOW_VIDEO = True
 DRAW_LANDMARKS = True
 PREVIEW_MAX_WIDTH = 720
 SMOOTHING_WINDOW = 10
 MOTION_BUFFER = 20  # 움직임 추적할 프레임 수 (약 0.6초)
+
+GESTURE_LABELS_KO = {
+    "pointing": "가리키기",
+    "sweep":    "쓸기",
+    "emphasis": "강조",
+    "active":   "활발",
+    "neutral":  "미감지/정지",
+}
 
 
 # =========================
@@ -89,6 +97,46 @@ def get_motion_metrics(pos_buffer):
         "total_dist":       total_dist,
         "direction_changes": direction_changes,
     }
+
+
+# =========================
+# 들고 있는 손 감지
+# =========================
+def is_holding_hand(lm):
+    """
+    손가락이 거의 접혀있으면 뭔가 들고 있는 것으로 판단.
+    검지/중지/약지/소지 중 1개 이하만 펴짐 → 들고 있는 손
+    """
+    extended = [
+        finger_extended(lm, 8,  6),   # 검지
+        finger_extended(lm, 12, 10),  # 중지
+        finger_extended(lm, 16, 14),  # 약지
+        finger_extended(lm, 20, 18),  # 소지
+    ]
+    return sum(extended) <= 1
+
+
+def select_active_hand(multi_hand_landmarks):
+    """
+    감지된 손 중 제스처 분석할 손 선택.
+    - 1개: 그 손 사용
+    - 2개: 들고 있지 않은 손 우선 선택
+    """
+    if len(multi_hand_landmarks) == 1:
+        return multi_hand_landmarks[0].landmark
+
+    lm0 = multi_hand_landmarks[0].landmark
+    lm1 = multi_hand_landmarks[1].landmark
+
+    holding0 = is_holding_hand(lm0)
+    holding1 = is_holding_hand(lm1)
+
+    if holding0 and not holding1:
+        return lm1  # 손0이 들고 있음 → 손1 사용
+    elif holding1 and not holding0:
+        return lm0  # 손1이 들고 있음 → 손0 사용
+    else:
+        return lm0  # 둘 다 자유 or 둘 다 들고 있음 → 첫 번째 손
 
 
 # =========================
@@ -234,9 +282,10 @@ def analyze_gesture(
         "neutral":  0,
     }
 
-    total_frames   = 0
-    gesture_buffer = deque(maxlen=smoothing_window)
-    pos_buffer     = deque(maxlen=MOTION_BUFFER)  # 손목 위치 추적용
+    total_frames     = 0
+    one_hand_frames  = 0  # 한 손이 뭔가를 들고 있던 프레임 수
+    gesture_buffer   = deque(maxlen=smoothing_window)
+    pos_buffer       = deque(maxlen=MOTION_BUFFER)  # 손목 위치 추적용
 
     if show_video:
         cv2.namedWindow("Gesture Analysis", cv2.WINDOW_AUTOSIZE)
@@ -263,9 +312,16 @@ def analyze_gesture(
             gesture   = "neutral"
 
             if results.multi_hand_landmarks:
-                # 첫 번째 손의 손목(landmark 0) 위치 추적
-                lm = results.multi_hand_landmarks[0].landmark
+                # 들고 있는 손 제외하고 활성 손 선택
+                lm = select_active_hand(results.multi_hand_landmarks)
                 pos_buffer.append((lm[0].x, lm[0].y))
+
+                # 한 손이 뭔가 들고 있는지 카운트
+                if len(results.multi_hand_landmarks) == 2:
+                    lm0 = results.multi_hand_landmarks[0].landmark
+                    lm1 = results.multi_hand_landmarks[1].landmark
+                    if is_holding_hand(lm0) != is_holding_hand(lm1):
+                        one_hand_frames += 1
 
                 # 검지 펴짐 여부
                 index_ext = finger_extended(lm, 8, 6)
@@ -330,6 +386,9 @@ def analyze_gesture(
         for key, value in gesture_counts.items()
     }
 
+    # 전체 프레임의 30% 이상에서 한 손이 뭔가를 들고 있었으면 한손 발표 모드
+    one_hand_mode = (one_hand_frames / total_frames) >= 0.30
+
     # 손이 90% 이상 미감지면 손동작 없음 처리
     gesture_detected = gesture_ratio.get("neutral", 0) < 90
 
@@ -341,6 +400,7 @@ def analyze_gesture(
             "gesture_score":    None,
             "gesture_feedback": "손동작이 감지되지 않았습니다. 발표 연습 시 손동작을 활용하면 더 좋은 인상을 줄 수 있습니다.",
             "gesture_detected": False,
+            "one_hand_mode":    one_hand_mode,
         }
 
     gesture_score    = calculate_gesture_score(gesture_ratio, situation)
@@ -353,15 +413,19 @@ def analyze_gesture(
         "gesture_score":    gesture_score,
         "gesture_feedback": gesture_feedback,
         "gesture_detected": True,
+        "one_hand_mode":    one_hand_mode,
     }
 
 
 if __name__ == "__main__":
-    print(f"현재 분석 중인 영상: {VIDEO_PATH}")
+    import sys
+    video_path = sys.argv[1] if len(sys.argv) > 1 else VIDEO_PATH
+
+    print(f"현재 분석 중인 영상: {video_path}")
     print(f"회전 모드: {ROTATE_MODE}")
 
     result = analyze_gesture(
-        video_path=VIDEO_PATH,
+        video_path=video_path,
         smoothing_window=SMOOTHING_WINDOW,
         show_video=SHOW_VIDEO,
         rotate_mode=ROTATE_MODE,
@@ -371,8 +435,10 @@ if __name__ == "__main__":
 
     print("=== 손동작 분석 결과 ===")
     print(f"총 처리 프레임 수: {result['total_frames']}")
-    print(f"제스처별 개수:    {result['gesture_counts']}")
-    print(f"제스처별 비율(%): {result['gesture_ratio']}")
-    print(f"손동작 점수:      {result['gesture_score']}")
-    print(f"손동작 피드백:    {result['gesture_feedback']}")
-    print(f"손동작 감지여부:  {result['gesture_detected']}")
+    print("제스처별 비율(%):")
+    for key, val in result['gesture_ratio'].items():
+        print(f"  {GESTURE_LABELS_KO.get(key, key)}: {val}%")
+    print(f"손동작 점수:     {result['gesture_score']}")
+    print(f"손동작 피드백:   {result['gesture_feedback']}")
+    print(f"손동작 감지여부: {result['gesture_detected']}")
+    print(f"한손 발표 모드:  {'✅ 감지됨 (한 손으로 자료를 들고 발표)' if result['one_hand_mode'] else '❌ 미감지 (양손 자유 발표)'}")
