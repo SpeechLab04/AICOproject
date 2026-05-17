@@ -590,28 +590,46 @@ function ContentDetail({
         </h3>
 
         {expectedQuestions.length > 0 ? (
-          expectedQuestions.map((question, index) => (
-            <div
-              key={index}
-              style={{
-                background: "#F8FCFA",
-                borderRadius: "18px",
-                padding: "18px 22px",
-                marginBottom: "14px",
-                color: "#2D3A3A",
-                fontSize: "18px",
-                lineHeight: "1.7",
-              }}
-            >
-              <strong style={{ color: "#6BB5A6" }}>Q{index + 1}.</strong>{" "}
-              {question}
-            </div>
-          ))
+          expectedQuestions.map((question, index) => {
+            const questionText =
+              typeof question === "string"
+                ? question
+                : question?.question || "질문 내용이 없습니다.";
+
+            const personaType =
+              typeof question === "object"
+                ? question?.persona_type
+                : null;
+
+            return (
+              <div
+                key={index}
+                style={{
+                  background: "#F8FCFA",
+                  borderRadius: "18px",
+                  padding: "18px 22px",
+                  marginBottom: "14px",
+                  color: "#2D3A3A",
+                  fontSize: "18px",
+                  lineHeight: "1.7",
+                }}
+              >
+                <strong style={{ color: "#6BB5A6" }}>
+                  Q{index + 1}
+                  {personaType ? ` (${personaType})` : ""}.
+                </strong>{" "}
+
+                {questionText}
+              </div>
+            );
+          })
         ) : (
-          <p style={{ color: "#6B7C79" }}>생성된 예상 질문이 없습니다.</p>
+          <p style={{ color: "#6B7C79" }}>
+            생성된 예상 질문이 없습니다.
+          </p>
         )}
       </section>
-
+      
       <section style={cardStyle}>
         <h3 style={sectionTitle}>
           <FileText size={28} color="#6BB5A6" />
