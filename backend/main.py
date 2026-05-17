@@ -77,15 +77,8 @@ async def upload_video(
         script_text = speech_result.get("full_script", "")
 
         # 4. 영상 분석 실행 - Render 서버 안정화를 위해 임시 비활성화
-        # vision_result = analyze_vision(file_path)
+        vision_result = analyze_vision(file_path)
 
-        vision_result = {
-            "delivery_score": 0,
-            "delivery_feedback": "영상 분석은 서버 안정화를 위해 임시 비활성화되었습니다.",
-            "head_pose": {},
-            "emotion": {},
-            "gaze": {},
-        }
 
         # 5. LLM 분석 실행
         ai_result = await get_ai_presentation_feedback(
@@ -98,7 +91,7 @@ async def upload_video(
         return {
             "message": "분석 완료",
             "filename": file.filename,
-            "video_url": f"https://aico-backend-a7bu.onrender.com/uploads/{file.filename}",
+            "video_url": f"http://127.0.0.1:8000/uploads/{file.filename}",
             "total_score": ai_result.get("final_score", 82),
             "summary": ai_result.get(
                 "summary",
