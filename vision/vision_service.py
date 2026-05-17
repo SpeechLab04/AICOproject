@@ -5,18 +5,28 @@ from gaze_analysis import analyze_gaze
 from gesture_analysis import analyze_gesture
 
 
-def calculate_delivery_score(head_score, emotion_score, gaze_score, gesture_score):
-    HEAD_WEIGHT    = 0.40
-    EMOTION_WEIGHT = 0.25
-    GAZE_WEIGHT    = 0.20
-    GESTURE_WEIGHT = 0.15
-
-    score = (
-        head_score     * HEAD_WEIGHT
-        + emotion_score  * EMOTION_WEIGHT
-        + gaze_score     * GAZE_WEIGHT
-        + gesture_score  * GESTURE_WEIGHT
-    )
+def calculate_delivery_score(head_score, emotion_score, gaze_score, gesture_score=None):
+    if gesture_score is None:
+        # 손동작 미감지 → 나머지 3개로만 계산
+        HEAD_WEIGHT    = 0.45
+        EMOTION_WEIGHT = 0.30
+        GAZE_WEIGHT    = 0.25
+        score = (
+            head_score    * HEAD_WEIGHT
+            + emotion_score * EMOTION_WEIGHT
+            + gaze_score    * GAZE_WEIGHT
+        )
+    else:
+        HEAD_WEIGHT    = 0.40
+        EMOTION_WEIGHT = 0.25
+        GAZE_WEIGHT    = 0.20
+        GESTURE_WEIGHT = 0.15
+        score = (
+            head_score     * HEAD_WEIGHT
+            + emotion_score  * EMOTION_WEIGHT
+            + gaze_score     * GAZE_WEIGHT
+            + gesture_score  * GESTURE_WEIGHT
+        )
     return round(score)
 
 
@@ -60,18 +70,21 @@ def analyze_vision(video_path, situation="academic"):
         video_path,
         show_video=False,
         rotate_mode="ccw",
-        smoothing_window=7
+        smoothing_window=7,
+        situation=situation
     )
 
     head_score    = head_result.get("head_score",    50)
     emotion_score = emotion_result.get("emotion_score", 50)
     gaze_score    = gaze_result.get("gaze_score",    50)
-    gesture_score = gesture_result.get("gesture_score", 50)
+
+    gesture_detected = gesture_result.get("gesture_detected", False)
+    gesture_score    = gesture_result.get("gesture_score", None) if gesture_detected else None
 
     print(f"[디버깅] head_score    = {head_score}")
     print(f"[디버깅] emotion_score = {emotion_score}")
     print(f"[디버깅] gaze_score    = {gaze_score}")
-    print(f"[디버깅] gesture_score = {gesture_score}")
+    print(f"[디버깅] gesture_score = {gesture_score} (감지: {gesture_detected})")
 
     delivery_score    = calculate_delivery_score(
         head_score, emotion_score, gaze_score, gesture_score
