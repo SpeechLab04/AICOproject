@@ -2,6 +2,7 @@ import cv2
 import mediapipe as mp
 from collections import deque
 import os
+from gesture_profiles import GESTURE_PROFILES
 
 mp_hands = mp.solutions.hands
 mp_drawing = mp.solutions.drawing_utils
@@ -14,7 +15,8 @@ ROTATE_MODE = "ccw"
 SHOW_VIDEO = True
 DRAW_LANDMARKS = True
 PREVIEW_MAX_WIDTH = 720
-SMOOTHING_WINDOW = 7
+SMOOTHING_WINDOW = 10
+MOTION_BUFFER = 20  # 움직임 추적할 프레임 수 (약 0.6초)
 
 
 # =========================
@@ -39,184 +41,202 @@ def resize_for_preview(frame, max_width=720):
 
 
 def finger_extended(lm, tip, pip):
-    """tip이 pip보다 위에 있으면(y가 작으면) 펴진 것으로 판단"""
+    """tip이 pip보다 위에 있으면 펴진 것으로 판단"""
     return lm[tip].y < lm[pip].y
 
 
-def get_gesture_metrics(multi_hand_landmarks):
+# =========================
+# 움직임 메트릭 계산
+# =========================
+def get_motion_metrics(pos_buffer):
     """
-    감지된 손 전체에서 제스처 메트릭 추출.
-    반환: dict 또는 None
+    손목 위치 버퍼로부터 움직임 특성 계산.
+    pos_buffer: deque of (x, y) — MediaPipe 정규화 좌표 (0~1)
     """
-    if not multi_hand_landmarks:
+    if len(pos_buffer) < 3:
         return None
 
-    hands_data = []
+    positions = list(pos_buffer)
 
-    for hand_lm in multi_hand_landmarks:
-        lm = hand_lm.landmark
+    # 프레임 간 이동 거리 합산 → 평균 속도
+    total_dist = 0.0
+    for i in range(1, len(positions)):
+        dx = positions[i][0] - positions[i - 1][0]
+        dy = positions[i][1] - positions[i - 1][1]
+        total_dist += (dx ** 2 + dy ** 2) ** 0.5
+    avg_speed = total_dist / len(positions)
 
-        # ── 손가락 펴짐 여부 ──
-        # 엄지: x축 기준 (손 방향 무관하게 tip과 ip 거리로 근사)
-        thumb_ext  = abs(lm[4].x - lm[3].x) > 0.02
-        index_ext  = finger_extended(lm, 8,  6)
-        middle_ext = finger_extended(lm, 12, 10)
-        ring_ext   = finger_extended(lm, 16, 14)
-        pinky_ext  = finger_extended(lm, 20, 18)
+    # 전체 변위 (버퍼 시작 → 끝)
+    net_dx = positions[-1][0] - positions[0][0]
+    net_dy = positions[-1][1] - positions[0][1]
 
-        extended_fingers = [thumb_ext, index_ext, middle_ext, ring_ext, pinky_ext]
-        extended_count = sum(extended_fingers)
+    # y축 방향 변화 횟수 → 강조 동작(위아래 반복) 감지
+    dy_signs = []
+    for i in range(1, len(positions)):
+        dy = positions[i][1] - positions[i - 1][1]
+        if abs(dy) > 0.005:  # 노이즈 필터
+            dy_signs.append(1 if dy > 0 else -1)
 
-        # ── 손목 높이 (y가 작을수록 화면 위쪽 = 손이 올라간 상태) ──
-        wrist_y = lm[0].y  # 0~1 정규화값
-
-        hands_data.append({
-            "extended_count": extended_count,
-            "index_ext": index_ext,
-            "middle_ext": middle_ext,
-            "ring_ext": ring_ext,
-            "pinky_ext": pinky_ext,
-            "thumb_ext": thumb_ext,
-            "wrist_y": wrist_y,
-        })
-
-    hand_count = len(hands_data)
-
-    # 양손 감지 시 평균, 단일 손이면 그대로
-    avg_extended = sum(h["extended_count"] for h in hands_data) / hand_count
-    avg_wrist_y  = sum(h["wrist_y"] for h in hands_data) / hand_count
-
-    # 대표 손(첫 번째) 기준으로 손가락 상태 사용
-    primary = hands_data[0]
+    direction_changes = (
+        sum(1 for i in range(1, len(dy_signs)) if dy_signs[i] != dy_signs[i - 1])
+        if len(dy_signs) > 1 else 0
+    )
 
     return {
-        "hand_count": hand_count,
-        "extended_count": primary["extended_count"],
-        "avg_extended": avg_extended,
-        "index_ext": primary["index_ext"],
-        "middle_ext": primary["middle_ext"],
-        "ring_ext": primary["ring_ext"],
-        "pinky_ext": primary["pinky_ext"],
-        "thumb_ext": primary["thumb_ext"],
-        "wrist_y": avg_wrist_y,
+        "avg_speed":        avg_speed,
+        "net_dx":           net_dx,
+        "net_dy":           net_dy,
+        "total_dist":       total_dist,
+        "direction_changes": direction_changes,
     }
 
 
-def classify_gesture(metrics):
+# =========================
+# 제스처 분류
+# =========================
+def classify_gesture(motion_metrics, index_extended):
     """
-    메트릭 → 제스처 레이블 분류.
+    움직임 메트릭 → 제스처 레이블 분류.
 
     레이블 정의:
-      pointing   : 검지만 펴짐 → 자료/화면 가리키기
-      open_hand  : 4~5개 손가락 펴짐 → 강조·설명 제스처
-      active     : 2~3개 손가락 펴짐 → 일반적인 손 사용
-      neutral    : 손 미감지 또는 모두 접힘
+      pointing  : 검지 펴고 방향성 있게 이동 → 화면/자료 가리키기
+      sweep     : 빠른 수평 이동              → 설명하며 손 쓸기
+      emphasis  : 위아래 반복 진동            → 강조할 때 손 두드리기
+      active    : 활발한 일반 손 움직임       → 자연스러운 설명 제스처
+      neutral   : 거의 움직임 없음 or 손 미감지
     """
-    if metrics is None:
+    if motion_metrics is None:
         return "neutral"
 
-    ec = metrics["extended_count"]
-    idx = metrics["index_ext"]
-    mid = metrics["middle_ext"]
-    rng = metrics["ring_ext"]
-    pnk = metrics["pinky_ext"]
+    speed   = motion_metrics["avg_speed"]
+    net_dx  = motion_metrics["net_dx"]
+    net_dy  = motion_metrics["net_dy"]
+    changes = motion_metrics["direction_changes"]
 
-    # pointing: 검지만 펴지고 나머지는 접힘
-    if idx and not mid and not rng and not pnk:
+    # 거의 안 움직임 → neutral
+    if speed < 0.005:
+        return "neutral"
+
+    # 수평 쓸기: 좌우 이동이 상하보다 1.5배 이상 크고 이동량 충분
+    if abs(net_dx) > 0.10 and abs(net_dx) > abs(net_dy) * 1.5:
+        return "sweep"
+
+    # 강조: y방향 반복 진동 (방향 전환 3회 이상)
+    if changes >= 3 and speed > 0.008:
+        return "emphasis"
+
+    # 가리키기: 검지 펴고 이동
+    if index_extended and speed > 0.006:
         return "pointing"
 
-    # open_hand: 손가락 4개 이상 펴짐
-    if ec >= 4:
-        return "open_hand"
-
-    # active: 2~3개 펴짐
-    if ec >= 2:
+    # 일반 활발한 움직임
+    if speed > 0.007:
         return "active"
 
     return "neutral"
 
 
-def calculate_gesture_score(gesture_ratio, avg_wrist_y_series):
+# =========================
+# 점수 계산
+# =========================
+def calculate_gesture_score(gesture_ratio, situation="academic"):
     """
     손동작 점수 계산 (0~100).
-
-    채점 기준:
-      - pointing + open_hand + active 비율이 높을수록 가산
-      - 완전 neutral(손을 전혀 안 씀) 비율이 높으면 감점
-      - 손 높이: 너무 낮으면(아래로 늘어뜨림) 소폭 감점
+    구간 기반 + 다양성 보너스. situation별 보정은 gesture_profiles.py 참고.
     """
-    pointing   = gesture_ratio.get("pointing", 0)
-    open_hand  = gesture_ratio.get("open_hand", 0)
-    active     = gesture_ratio.get("active", 0)
-    neutral    = gesture_ratio.get("neutral", 0)
+    profile = GESTURE_PROFILES.get(situation, GESTURE_PROFILES["academic"])
+    s = profile["scoring"]
 
-    gesture_use = pointing + open_hand + active  # 손을 사용한 비율
+    pointing = gesture_ratio.get("pointing", 0)
+    sweep    = gesture_ratio.get("sweep",    0)
+    emphasis = gesture_ratio.get("emphasis", 0)
+    active   = gesture_ratio.get("active",   0)
 
-    score = 50
+    gesture_use = pointing + sweep + emphasis + active
 
-    # 손 사용 비율 가산 (최대 +35)
-    score += min(gesture_use * 0.35, 35)
+    # ── 구간 기반 기본 점수 (gesture_use 비율 기준) ──
+    if gesture_use > 70:
+        score = 85
+    elif gesture_use > 50:
+        score = 72
+    elif gesture_use > 30:
+        score = 58
+    elif gesture_use > 10:
+        score = 42
+    else:
+        score = 25
 
-    # pointing은 추가 가산 (자료 지시 → 명확한 의도 표현)
-    score += min(pointing * 0.15, 10)
+    # ── 다양성 보너스 (사용한 제스처 종류 수) ──
+    variety = sum([
+        pointing > 3,
+        sweep    > 3,
+        emphasis > 3,
+        active   > 3,
+    ])
+    if variety >= 4:
+        score += 10
+    elif variety == 3:
+        score += 7
+    elif variety == 2:
+        score += 4
 
-    # neutral 과다 감점
-    if neutral > 60:
-        score -= (neutral - 60) * 0.3
+    # pointing 보너스 (명확한 지시 동작)
+    if pointing > 10:
+        score += 3
 
-    # 손 높이 평균: 0.7 이상이면 손이 너무 내려가 있음 (화면 아래쪽)
-    if avg_wrist_y_series:
-        avg_y = sum(avg_wrist_y_series) / len(avg_wrist_y_series)
-        if avg_y > 0.75:
-            score -= 10
-        elif avg_y > 0.65:
-            score -= 5
+    # 과도한 제스처 감점 (면접 등 상황별)
+    if s["over_gesture_threshold"] is not None and gesture_use > s["over_gesture_threshold"]:
+        score -= (gesture_use - s["over_gesture_threshold"]) * s["over_gesture_penalty"]
 
     return max(0, min(100, round(score)))
 
 
-def get_gesture_feedback(gesture_ratio, gesture_score):
-    pointing  = gesture_ratio.get("pointing", 0)
-    open_hand = gesture_ratio.get("open_hand", 0)
-    active    = gesture_ratio.get("active", 0)
-    neutral   = gesture_ratio.get("neutral", 0)
+# =========================
+# 피드백
+# =========================
+def get_gesture_feedback(gesture_ratio, gesture_score, situation="academic"):
+    profile = GESTURE_PROFILES.get(situation, GESTURE_PROFILES["academic"])
+    fb = profile["feedback"]
 
-    gesture_use = pointing + open_hand + active
+    neutral = gesture_ratio.get("neutral", 0)
 
-    if neutral > 70:
-        return "손 제스처가 거의 없어 발표가 다소 경직되어 보일 수 있습니다. 설명할 때 자연스럽게 손을 활용해 보세요."
-    elif gesture_score >= 80:
-        return "손 제스처를 적극적으로 활용하여 발표 내용을 효과적으로 전달하고 있습니다."
-    elif gesture_score >= 65:
-        return "손 제스처를 적절히 사용하고 있습니다. 핵심 내용에서 조금 더 강조 제스처를 활용하면 좋습니다."
-    elif pointing > 20:
-        return "자료를 가리키는 제스처가 많습니다. 설명 제스처(손바닥 펼치기 등)도 함께 활용해 보세요."
+    if neutral > 90:
+        return fb["no_hand"]
+    if gesture_score >= 80:
+        return fb["high"]
+    elif gesture_score >= 60:
+        return fb["mid"]
     else:
-        return "손 제스처를 조금 더 다양하게 사용하면 청중의 집중도를 높일 수 있습니다."
+        return fb["low"]
 
 
+# =========================
+# 메인 분석 함수
+# =========================
 def analyze_gesture(
     video_path,
-    smoothing_window=7,
+    smoothing_window=10,
     show_video=True,
     rotate_mode="none",
     preview_max_width=720,
     draw_landmarks=True,
+    situation="academic",
 ):
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         raise ValueError(f"비디오를 열 수 없습니다: {video_path}")
 
     gesture_counts = {
-        "pointing":  0,
-        "open_hand": 0,
-        "active":    0,
-        "neutral":   0,
+        "pointing": 0,
+        "sweep":    0,
+        "emphasis": 0,
+        "active":   0,
+        "neutral":  0,
     }
 
-    total_frames = 0
+    total_frames   = 0
     gesture_buffer = deque(maxlen=smoothing_window)
-    wrist_y_log = []   # 손 높이 추이 기록
+    pos_buffer     = deque(maxlen=MOTION_BUFFER)  # 손목 위치 추적용
 
     if show_video:
         cv2.namedWindow("Gesture Analysis", cv2.WINDOW_AUTOSIZE)
@@ -237,53 +257,60 @@ def analyze_gesture(
             total_frames += 1
 
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            results = hands.process(rgb_frame)
+            results   = hands.process(rgb_frame)
 
-            metrics = get_gesture_metrics(results.multi_hand_landmarks)
-            gesture = classify_gesture(metrics)
+            index_ext = False
+            gesture   = "neutral"
 
+            if results.multi_hand_landmarks:
+                # 첫 번째 손의 손목(landmark 0) 위치 추적
+                lm = results.multi_hand_landmarks[0].landmark
+                pos_buffer.append((lm[0].x, lm[0].y))
+
+                # 검지 펴짐 여부
+                index_ext = finger_extended(lm, 8, 6)
+
+                # 움직임 기반 제스처 분류
+                motion  = get_motion_metrics(pos_buffer)
+                gesture = classify_gesture(motion, index_ext)
+
+                if draw_landmarks:
+                    for hand_lm in results.multi_hand_landmarks:
+                        mp_drawing.draw_landmarks(
+                            frame,
+                            hand_lm,
+                            mp_hands.HAND_CONNECTIONS,
+                            mp_drawing_styles.get_default_hand_landmarks_style(),
+                            mp_drawing_styles.get_default_hand_connections_style(),
+                        )
+
+            # 스무딩 적용 후 카운트
             gesture_buffer.append(gesture)
-            stable_gesture = max(set(gesture_buffer), key=gesture_buffer.count)
-            gesture_counts[stable_gesture] += 1
-
-            if metrics is not None:
-                wrist_y_log.append(metrics["wrist_y"])
-
-            if draw_landmarks and results.multi_hand_landmarks:
-                for hand_lm in results.multi_hand_landmarks:
-                    mp_drawing.draw_landmarks(
-                        frame,
-                        hand_lm,
-                        mp_hands.HAND_CONNECTIONS,
-                        mp_drawing_styles.get_default_hand_landmarks_style(),
-                        mp_drawing_styles.get_default_hand_connections_style(),
-                    )
+            stable = max(set(gesture_buffer), key=gesture_buffer.count)
+            gesture_counts[stable] += 1
 
             if show_video:
-                label_color = {
-                    "pointing":  (0, 200, 255),
-                    "open_hand": (0, 255, 100),
-                    "active":    (255, 200, 0),
-                    "neutral":   (180, 180, 180),
-                }.get(stable_gesture, (255, 255, 255))
-
+                color_map = {
+                    "pointing": (0, 200, 255),
+                    "sweep":    (0, 255, 100),
+                    "emphasis": (255, 100, 0),
+                    "active":   (255, 200, 0),
+                    "neutral":  (180, 180, 180),
+                }
                 cv2.putText(
-                    frame,
-                    f"Gesture: {stable_gesture}",
-                    (20, 40),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    1.0,
-                    label_color,
-                    2,
+                    frame, f"Gesture: {stable}",
+                    (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.0,
+                    color_map.get(stable, (255, 255, 255)), 2,
                 )
 
-                if metrics:
-                    cv2.putText(frame, f"hands: {metrics['hand_count']}", (20, 78),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,255), 2)
-                    cv2.putText(frame, f"extended: {metrics['extended_count']}/5", (20, 104),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,255), 2)
-                    cv2.putText(frame, f"wrist_y: {metrics['wrist_y']:.2f}", (20, 130),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,255), 2)
+                motion = get_motion_metrics(pos_buffer)
+                if motion:
+                    cv2.putText(frame, f"speed: {motion['avg_speed']:.4f}",
+                        (20, 78), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                    cv2.putText(frame, f"net_dx: {motion['net_dx']:.3f}",
+                        (20, 104), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                    cv2.putText(frame, f"dir_changes: {motion['direction_changes']}",
+                        (20, 130), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
                 preview = resize_for_preview(frame, max_width=preview_max_width)
                 cv2.imshow("Gesture Analysis", preview)
@@ -303,15 +330,29 @@ def analyze_gesture(
         for key, value in gesture_counts.items()
     }
 
-    gesture_score = calculate_gesture_score(gesture_ratio, wrist_y_log)
-    gesture_feedback = get_gesture_feedback(gesture_ratio, gesture_score)
+    # 손이 90% 이상 미감지면 손동작 없음 처리
+    gesture_detected = gesture_ratio.get("neutral", 0) < 90
+
+    if not gesture_detected:
+        return {
+            "total_frames":     total_frames,
+            "gesture_counts":   gesture_counts,
+            "gesture_ratio":    gesture_ratio,
+            "gesture_score":    None,
+            "gesture_feedback": "손동작이 감지되지 않았습니다. 발표 연습 시 손동작을 활용하면 더 좋은 인상을 줄 수 있습니다.",
+            "gesture_detected": False,
+        }
+
+    gesture_score    = calculate_gesture_score(gesture_ratio, situation)
+    gesture_feedback = get_gesture_feedback(gesture_ratio, gesture_score, situation)
 
     return {
-        "total_frames":    total_frames,
-        "gesture_counts":  gesture_counts,
-        "gesture_ratio":   gesture_ratio,
-        "gesture_score":   gesture_score,
+        "total_frames":     total_frames,
+        "gesture_counts":   gesture_counts,
+        "gesture_ratio":    gesture_ratio,
+        "gesture_score":    gesture_score,
         "gesture_feedback": gesture_feedback,
+        "gesture_detected": True,
     }
 
 
@@ -330,7 +371,8 @@ if __name__ == "__main__":
 
     print("=== 손동작 분석 결과 ===")
     print(f"총 처리 프레임 수: {result['total_frames']}")
-    print(f"제스처별 개수: {result['gesture_counts']}")
+    print(f"제스처별 개수:    {result['gesture_counts']}")
     print(f"제스처별 비율(%): {result['gesture_ratio']}")
-    print(f"손동작 점수: {result['gesture_score']}")
-    print(f"손동작 피드백: {result['gesture_feedback']}")
+    print(f"손동작 점수:      {result['gesture_score']}")
+    print(f"손동작 피드백:    {result['gesture_feedback']}")
+    print(f"손동작 감지여부:  {result['gesture_detected']}")

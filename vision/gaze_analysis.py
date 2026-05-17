@@ -109,19 +109,27 @@ def classify_gaze(avg_offset):
 
 def calculate_gaze_score(gaze_ratio):
     center = gaze_ratio.get("center", 0)
-    left = gaze_ratio.get("left", 0)
-    right = gaze_ratio.get("right", 0)
+    left   = gaze_ratio.get("left",   0)
+    right  = gaze_ratio.get("right",  0)
 
     lr = left + right
 
-    score = 40
-    score += center * 0.45
+    # ── 구간 기반 기본 점수 (center 비율 기준) ──
+    if center > 70:
+        score = 88
+    elif center > 55:
+        score = 73
+    elif center > 40:
+        score = 57
+    else:
+        score = 38
 
-    # 좌우 시선 이동이 적당하면 소폭 가산
+    # ── 세부 보정 ──
+    # 좌우 적당히 → 청중 고르게 바라보는 자연스러운 시선
     if 10 <= lr <= 25:
         score += 5
-    elif lr > 40:
-        score -= (lr - 40) * 0.4
+    elif lr > 45:
+        score -= 10
 
     return max(0, min(100, round(score)))
 

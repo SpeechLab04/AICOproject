@@ -156,11 +156,18 @@ def classify_emotion(face_landmarks):
 
 def calculate_emotion_score(emotion_ratio):
     positive = emotion_ratio.get("positive", 0)
-    neutral = emotion_ratio.get("neutral", 0)
 
-    score = 50
-    score += positive * 0.6   # 웃음 중요
-    score += neutral * 0.2    # 무표정도 기본점
+    # ── 구간 기반 기본 점수 (positive 비율 기준) ──
+    if positive > 50:
+        score = 90
+    elif positive > 30:
+        score = 75
+    elif positive > 15:
+        score = 60
+    elif positive > 5:
+        score = 45
+    else:
+        score = 32
 
     return max(0, min(100, round(score)))
 

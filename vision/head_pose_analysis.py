@@ -65,31 +65,34 @@ def analyze_head_pose(video_path, buffer_size=15, show_video=True):
 
     def calculate_head_score(ratios):
         front = ratios.get("front", 0)
-        left = ratios.get("left", 0)
+        left  = ratios.get("left",  0)
         right = ratios.get("right", 0)
-        up = ratios.get("up", 0)
-        down = ratios.get("down", 0)
+        down  = ratios.get("down",  0)
 
         lr = left + right
-        score = 100
 
-        # 정면 부족 감점
-        if front < 40:
-            score -= (40 - front) * 1.2
+        # ── 구간 기반 기본 점수 (front 비율 기준) ──
+        if front > 70 and down < 10:
+            score = 88
+        elif front > 60:
+            score = 75
+        elif front > 45:
+            score = 60
+        elif front > 30:
+            score = 45
+        else:
+            score = 30
 
-        # 아래 보는 비율 (가장 큰 감점)
-        score -= down * 1.0
+        # ── 세부 보정 ──
+        # 아래 많이 보면 감점 (원고 읽는 행동)
+        if down > 30:
+            score -= 15
 
-        # 위는 약하게 반영
-        score -= up * 0.2
-
-        # 좌우는 적당하면 긍정
+        # 좌우 적당히 → 자연스러운 시선 분산 가산
         if 10 <= lr <= 30:
-            score += 3
-
-        # 좌우가 너무 많으면 감점
+            score += 5
         elif lr > 40:
-            score -= (lr - 40) * 0.3
+            score -= 5
 
         return max(0, min(100, round(score)))
 
