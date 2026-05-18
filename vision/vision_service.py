@@ -59,15 +59,40 @@ def calculate_delivery_score(head_score, emotion_score, gaze_score, gesture_scor
     return round(score)
 
 
-def get_delivery_feedback(delivery_score):
+def get_delivery_feedback(delivery_score, head_score=None, emotion_score=None, gaze_score=None, gesture_score=None):
+    # 잘한 항목 / 부족한 항목 분류 (기준: 75점)
+    scores = {
+        "고개": head_score,
+        "시선": gaze_score,
+        "표정": emotion_score,
+        "손동작": gesture_score,
+    }
+    good = [k for k, v in scores.items() if v is not None and v >= 75]
+    weak = [k for k, v in scores.items() if v is not None and v < 60]
+
+    good_str = ", ".join(good) if good else None
+    weak_str = ", ".join(weak) if weak else None
+
     if delivery_score >= 85:
-        return "고개 방향, 표정, 시선, 손동작이 전반적으로 안정적인 발표 태도입니다."
+        return (
+            "고개, 시선, 표정, 손동작 모두 훌륭합니다! "
+            "지금의 발표 태도를 유지하면 청중에게 자신감 있고 신뢰감 있는 발표자로 기억될 것입니다. "
+            "정말 잘하고 있어요, 계속 이대로 연습해봐요!"
+        )
     elif delivery_score >= 70:
-        return "전반적으로 무난한 발표 태도이지만, 일부 요소를 조금 더 보완하면 좋습니다."
+        base = f"{good_str}는 매우 안정적이에요!" if good_str else "전반적으로 무난한 발표 태도예요!"
+        extra = f" {weak_str}만 조금 더 신경 써주면 훨씬 좋은 발표가 될 것 같아요. 조금만 더 연습해봐요!" if weak_str else " 각 항목 피드백을 참고해서 조금씩 다듬어 나가봐요!"
+        return base + extra
     elif delivery_score >= 50:
-        return "발표 태도는 무난하지만 시선, 표정, 손동작 관리에서 개선 여지가 있습니다."
+        base = f"{good_str}는 잘 유지되고 있어요." if good_str else "조금씩 나아지고 있어요."
+        extra = f" {weak_str} 부분을 집중적으로 연습하면 점수가 크게 올라갈 거예요. 포기하지 말고 다시 도전해봐요!" if weak_str else " 각 항목 피드백을 참고해서 꾸준히 연습해봐요!"
+        return base + extra
     else:
-        return "고개 방향, 표정, 시선, 손동작 전반에서 개선이 필요합니다."
+        return (
+            "아직 개선할 부분이 많지만 괜찮아요! "
+            f"{'특히 ' + weak_str + ' 항목을 먼저 집중적으로 연습해보세요. ' if weak_str else ''}"
+            "한 번에 다 잘하려 하기보다 하나씩 천천히 고쳐나가다 보면 분명 좋아질 거예요!"
+        )
 
 
 def _compute_guide(face_ratios, hand_count, total):
@@ -404,7 +429,7 @@ def analyze_vision(video_path, situation="academic", rotate_mode="none"):
     print(f"[디버깅] gesture_score = {gesture_score}")
 
     delivery_score    = calculate_delivery_score(head_score, emotion_score, gaze_score, gesture_score)
-    delivery_feedback = get_delivery_feedback(delivery_score)
+    delivery_feedback = get_delivery_feedback(delivery_score, head_score, emotion_score, gaze_score, gesture_score)
     elapsed           = round(time.time() - start, 2)
 
     return {
