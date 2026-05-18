@@ -191,6 +191,7 @@ def analyze_vision(video_path, situation="academic", rotate_mode="none"):
     one_hand_frames = 0
 
     frame_count = 0
+    timeline = []
 
     print("=== 단일 패스 분석 시작 ===")
 
@@ -317,6 +318,36 @@ def analyze_vision(video_path, situation="academic", rotate_mode="none"):
             stable_gesture = max(set(gesture_buf), key=gesture_buf.count)
             gesture_counts[stable_gesture] += 1
 
+            current_second = round(frame_count / fps)
+
+            if current_second % 15 == 0:
+                temp_head_ratio = {
+                    k: round((v / head_total) * 100)
+                    for k, v in head_counts.items()
+                } if head_total > 0 else {}
+
+                temp_emotion_ratio = {
+                    k: round((v / emotion_total) * 100, 2)
+                    for k, v in emotion_counts.items()
+                } if emotion_total > 0 else {}
+
+                temp_gaze_ratio = {
+                    k: round((v / gaze_total) * 100, 2)
+                    for k, v in gaze_counts.items()
+                } if gaze_total > 0 else {}
+
+                temp_gesture_ratio = {
+                    k: round((v / gesture_total) * 100, 2)
+                    for k, v in gesture_counts.items()
+                } if gesture_total > 0 else {}
+
+                timeline.append({
+                    "time": f"{current_second // 60:02d}:{current_second % 60:02d}",
+                    "head_score": calculate_head_score(temp_head_ratio) if temp_head_ratio else 0,
+                    "emotion_score": calculate_emotion_score(temp_emotion_ratio) if temp_emotion_ratio else 0,
+                    "gaze_score": calculate_gaze_score(temp_gaze_ratio) if temp_gaze_ratio else 0,
+                    "gesture_score": calculate_gesture_score(temp_gesture_ratio, situation) if temp_gesture_ratio else 0,
+                })
     cap.release()
 
     # 영상이 너무 짧아 가이드가 한 번도 완료 안 된 경우
@@ -432,18 +463,77 @@ def analyze_vision(video_path, situation="academic", rotate_mode="none"):
     delivery_feedback = get_delivery_feedback(delivery_score, head_score, emotion_score, gaze_score, gesture_score)
     elapsed           = round(time.time() - start, 2)
 
-    return {
-        "camera_guide":      guide_result,
-        "is_valid":          True,
-        "head_pose":         head_result,
-        "emotion":           emotion_result,
-        "gaze":              gaze_result,
-        "gesture":           gesture_result,
-        "delivery_score":    delivery_score,
-        "delivery_feedback": delivery_feedback,
-        "analysis_time":     elapsed,
+    video_dashboard = {
+        "overall": {
+            "score": delivery_score,
+            "feedback": delivery_feedback,
+            "analysis_time": elapsed,
+        },
+        "timeline": timeline,
+        "metrics": [
+            {
+                "key": "head",
+                "label": "고개 방향",
+                "score": head_score,
+                "feedback": head_result.get("head_feedback", ""),
+                "ratio": head_result.get("ratios", {}),
+            },
+            {
+                "key": "emotion",
+                "label": "표정",
+                "score": emotion_score,
+                "feedback": emotion_result.get("emotion_feedback", ""),
+                "ratio": emotion_result.get("emotion_ratio", {}),
+            },
+            {
+                "key": "gaze",
+                "label": "시선",
+                "score": gaze_score,
+                "feedback": gaze_result.get("gaze_feedback", ""),
+                "ratio": gaze_result.get("gaze_ratio", {}),
+            },
+            {
+                "key": "gesture",
+                "label": "손동작",
+                "score": gesture_score if gesture_score is not None else 0,
+                "feedback": gesture_result.get("gesture_feedback", ""),
+                "ratio": gesture_result.get("gesture_ratio", {}),
+            },
+        ],
+        "feedback_items": [
+            {
+                "label": "고개 방향",
+                "feedback": head_result.get("head_feedback", ""),
+            },
+            {
+                "label": "표정",
+                "feedback": emotion_result.get("emotion_feedback", ""),
+            },
+            {
+                "label": "시선",
+                "feedback": gaze_result.get("gaze_feedback", ""),
+            },
+            {
+                "label": "손동작",
+                "feedback": gesture_result.get("gesture_feedback", ""),
+            },
+        ],
     }
 
+    return {
+        "camera_guide": guide_result,
+        "is_valid": True,
+        "head_pose": head_result,
+        "emotion": emotion_result,
+        "gaze": gaze_result,
+        "gesture": gesture_result,
+        "delivery_score": delivery_score,
+        "delivery_feedback": delivery_feedback,
+        "analysis_time": elapsed,
+
+        # ✅ 프론트 결과 화면용 정리 데이터
+        "video_dashboard": video_dashboard,
+    }
 
 if __name__ == "__main__":
     import sys
