@@ -45,6 +45,60 @@ def classify_head_direction(avg_x_offset, avg_y_ratio):
 
     return "front"
 
+def calculate_head_score(ratios):
+    front = ratios.get("front", 0)
+    left  = ratios.get("left",  0)
+    right = ratios.get("right", 0)
+    down  = ratios.get("down",  0)
+
+    lr = left + right
+
+    # ── 구간 기반 기본 점수 (front 비율 기준) ──
+    if front > 70 and down < 10:
+        score = 88
+    elif front > 60:
+        score = 75
+    elif front > 45:
+        score = 60
+    elif front > 30:
+        score = 45
+    else:
+        score = 30
+
+    # ── 세부 보정 ──
+    if down > 30:
+        score -= 15
+    if 10 <= lr <= 30:
+        score += 5
+    elif lr > 40:
+        score -= 5
+
+    return max(0, min(100, round(score)))
+
+
+def get_head_feedback(ratios):
+    front = ratios.get("front", 0)
+    left  = ratios.get("left",  0)
+    right = ratios.get("right", 0)
+    down  = ratios.get("down",  0)
+    up    = ratios.get("up",    0)
+
+    lr = left + right
+
+    if down >= 30:
+        return "아래를 보는 비율이 높아 청중과의 시선 연결이 약해 보일 수 있습니다."
+    elif front >= 70 and down <= 10:
+        return "정면을 안정적으로 잘 유지한 발표 자세입니다."
+    elif front >= 50 and 10 <= lr <= 30:
+        return "정면을 잘 유지하면서도 청중을 고르게 바라보는 자연스러운 발표 자세입니다."
+    elif front < 35:
+        return "정면을 유지하는 비율이 낮아 다소 산만해 보일 수 있습니다."
+    elif up >= 20:
+        return "위쪽을 보는 비율이 다소 높아 보여 시선을 조금 더 안정적으로 유지하면 좋습니다."
+    else:
+        return "전반적으로 안정적인 자세이지만, 정면 응시를 조금 더 의식하면 더 좋은 인상을 줄 수 있습니다."
+
+
 def analyze_head_pose(video_path, buffer_size=15, show_video=True, rotate_mode="none"):
     cap = cv2.VideoCapture(video_path)
 
@@ -62,62 +116,6 @@ def analyze_head_pose(video_path, buffer_size=15, show_video=True, rotate_mode="
         "down": 0,
         "front": 0
     }
-
-    def calculate_head_score(ratios):
-        front = ratios.get("front", 0)
-        left  = ratios.get("left",  0)
-        right = ratios.get("right", 0)
-        down  = ratios.get("down",  0)
-
-        lr = left + right
-
-        # ── 구간 기반 기본 점수 (front 비율 기준) ──
-        if front > 70 and down < 10:
-            score = 88
-        elif front > 60:
-            score = 75
-        elif front > 45:
-            score = 60
-        elif front > 30:
-            score = 45
-        else:
-            score = 30
-
-        # ── 세부 보정 ──
-        # 아래 많이 보면 감점 (원고 읽는 행동)
-        if down > 30:
-            score -= 15
-
-        # 좌우 적당히 → 자연스러운 시선 분산 가산
-        if 10 <= lr <= 30:
-            score += 5
-        elif lr > 40:
-            score -= 5
-
-        return max(0, min(100, round(score)))
-
-
-    def get_head_feedback(ratios):
-        front = ratios.get("front", 0)
-        left = ratios.get("left", 0)
-        right = ratios.get("right", 0)
-        down = ratios.get("down", 0)
-        up = ratios.get("up", 0)
-
-        lr = left + right
-
-        if down >= 30:
-            return "아래를 보는 비율이 높아 청중과의 시선 연결이 약해 보일 수 있습니다."
-        elif front >= 70 and down <= 10:
-            return "정면을 안정적으로 잘 유지한 발표 자세입니다."
-        elif front >= 50 and 10 <= lr <= 30:
-            return "정면을 잘 유지하면서도 청중을 고르게 바라보는 자연스러운 발표 자세입니다."
-        elif front < 35:
-            return "정면을 유지하는 비율이 낮아 다소 산만해 보일 수 있습니다."
-        elif up >= 20:
-            return "위쪽을 보는 비율이 다소 높아 보여 시선을 조금 더 안정적으로 유지하면 좋습니다."
-        else:
-            return "전반적으로 안정적인 자세이지만, 정면 응시를 조금 더 의식하면 더 좋은 인상을 줄 수 있습니다."
 
     total_processed_frames = 0
 
