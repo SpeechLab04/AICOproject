@@ -45,7 +45,7 @@ def classify_head_direction(avg_x_offset, avg_y_ratio):
 
     return "front"
 
-def analyze_head_pose(video_path, buffer_size=15, show_video=True):
+def analyze_head_pose(video_path, buffer_size=15, show_video=True, rotate_mode="none"):
     cap = cv2.VideoCapture(video_path)
 
     if not cap.isOpened():
@@ -134,10 +134,14 @@ def analyze_head_pose(video_path, buffer_size=15, show_video=True):
             if not ret:
                 break
 
-            # 90도 회전 보정
-            frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+            # 회전 보정 (rotate_mode 파라미터에 따라 처리)
+            if rotate_mode == "cw":
+                frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+            elif rotate_mode == "ccw":
+                frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+            elif rotate_mode == "180":
+                frame = cv2.rotate(frame, cv2.ROTATE_180)
 
-            #frame = cv2.flip(frame, 1)  # 거울모드처럼 보기 좋게
             # 화면 표시용 크기 조절
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 

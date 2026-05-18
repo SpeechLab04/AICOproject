@@ -3,6 +3,7 @@ from head_pose_analysis import analyze_head_pose
 from emotion_analysis import analyze_emotion
 from gaze_analysis import analyze_gaze
 from gesture_analysis import analyze_gesture
+from camera_guide import check_camera_guide
 
 
 def calculate_delivery_score(head_score, emotion_score, gaze_score, gesture_score=None):
@@ -43,11 +44,22 @@ def get_delivery_feedback(delivery_score):
         return "고개 방향, 표정, 시선, 손동작 전반에서 개선이 필요합니다."
 
 
-def analyze_vision(video_path, situation="academic"):
+def analyze_vision(video_path, situation="academic", rotate_mode="none"):
     start = time.time()
 
+    print("=== 촬영 가이드라인 검사 ===")
+    guide_result = check_camera_guide(video_path, rotate_mode=rotate_mode)
+    print(f"거리 판정: {guide_result['distance']} / 안내: {guide_result['suggestion']}")
+
+    if not guide_result["is_valid"]:
+        return {
+            "camera_guide":      guide_result,
+            "is_valid":          False,
+            "suggestion":        guide_result["suggestion"],
+        }
+
     print("=== 고개 방향 분석 시작 ===")
-    head_result = analyze_head_pose(video_path, show_video=False)
+    head_result = analyze_head_pose(video_path, show_video=False, rotate_mode=rotate_mode)
 
     print("=== 표정 분석 시작 ===")
     emotion_result = analyze_emotion(
@@ -69,7 +81,7 @@ def analyze_vision(video_path, situation="academic"):
     gesture_result = analyze_gesture(
         video_path,
         show_video=False,
-        rotate_mode="ccw",
+        rotate_mode=rotate_mode,
         smoothing_window=7,
         situation=situation,
     )
@@ -128,13 +140,15 @@ def analyze_vision(video_path, situation="academic"):
     elapsed = round(time.time() - start, 2)
 
     return {
-        "head_pose": head_result,
-        "emotion": emotion_result,
-        "gaze": gaze_result,
-        "gesture": gesture_result,
-        "delivery_score": delivery_score,
+        "camera_guide":    guide_result,
+        "is_valid":        True,
+        "head_pose":       head_result,
+        "emotion":         emotion_result,
+        "gaze":            gaze_result,
+        "gesture":         gesture_result,
+        "delivery_score":  delivery_score,
         "delivery_feedback": delivery_feedback,
-        "analysis_time": elapsed,
+        "analysis_time":   elapsed,
     }
 
 
