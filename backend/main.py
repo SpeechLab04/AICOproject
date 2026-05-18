@@ -76,9 +76,61 @@ async def upload_video(
 
         script_text = speech_result.get("full_script", "")
 
-        # 4. 영상 분석 실행 - Render 서버 안정화를 위해 임시 비활성화
+        # 4. 영상 분석 실행
         vision_result = analyze_vision(file_path)
-
+        if not vision_result.get("is_valid", False):
+            vision_result = {
+                "camera_guide": vision_result.get("camera_guide", {}),
+                "is_valid": False,
+                "head_pose": {},
+                "emotion": {},
+                "gaze": {},
+                "gesture": {},
+                "delivery_score": 0,
+                "delivery_feedback": vision_result.get(
+                    "suggestion",
+                    "영상에서 얼굴이 감지되지 않아 영상 분석을 수행하지 못했습니다."
+                ),
+                "analysis_time": 0,
+                "video_dashboard": {
+                    "overall": {
+                        "score": 0,
+                        "feedback": vision_result.get(
+                            "suggestion",
+                            "영상에서 얼굴이 감지되지 않아 영상 분석을 수행하지 못했습니다."
+                        ),
+                        "analysis_time": 0,
+                    },
+                    "metrics": [
+                        {
+                            "key": "head",
+                            "label": "고개 방향",
+                            "score": 0,
+                            "feedback": "얼굴이 감지되지 않아 고개 방향 분석을 수행하지 못했습니다.",
+                        },
+                        {
+                            "key": "emotion",
+                            "label": "표정",
+                            "score": 0,
+                            "feedback": "얼굴이 감지되지 않아 표정 분석을 수행하지 못했습니다.",
+                        },
+                        {
+                            "key": "gaze",
+                            "label": "시선",
+                            "score": 0,
+                            "feedback": "얼굴이 감지되지 않아 시선 분석을 수행하지 못했습니다.",
+                        },
+                        {
+                            "key": "gesture",
+                            "label": "손동작",
+                            "score": 0,
+                            "feedback": "촬영 가이드가 통과되지 않아 손동작 분석을 수행하지 못했습니다.",
+                        },
+                    ],
+                    "timeline": [],
+                    "feedback_items": [],
+                },
+            }
 
         # 5. LLM 분석 실행
         ai_result = await get_ai_presentation_feedback(
@@ -98,11 +150,14 @@ async def upload_video(
                 "전반적으로 안정적인 발표였으나 일부 보완이 필요합니다."
             ),
             "posture": {
-                "score": vision_result.get("delivery_score", 0),
-                "feedback": vision_result.get("delivery_feedback", ""),
-                "head_pose": vision_result.get("head_pose", {}),
-                "emotion": vision_result.get("emotion", {}),
-                "gaze": vision_result.get("gaze", {}),
+                "score": vision_result["delivery_score"],
+                "feedback": vision_result["delivery_feedback"],
+                "head_pose": vision_result["head_pose"],
+                "emotion": vision_result["emotion"],
+                "gaze": vision_result["gaze"],
+                "gesture": vision_result["gesture"],
+                "analysis_time": vision_result["analysis_time"],
+                "video_dashboard": vision_result["video_dashboard"],
             },
             "voice": {
                 "score": 0,

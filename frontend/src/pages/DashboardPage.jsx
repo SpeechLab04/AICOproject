@@ -12,6 +12,11 @@ import {
   Eye,
   Volume2,
   Brain,
+  User,
+  Smile,
+  Hand,
+  Lightbulb,
+  Clock,
 } from "lucide-react";
 import Header from "../components/Header";
 
@@ -36,9 +41,39 @@ function DashboardPage() {
 
   const totalScore = analysisResult?.total_score || 83;
 
-  const postureScore = analysisResult?.posture?.score || 78;
+  const postureScore = analysisResult?.posture?.score || 0;
   const postureFeedback =
     analysisResult?.posture?.feedback || "발표 자세 분석 결과입니다.";
+  const videoDashboard = analysisResult?.posture?.video_dashboard || null;
+
+  const videoMetrics = videoDashboard?.metrics || [
+    {
+      key: "head",
+      label: "고개 방향",
+      score: analysisResult?.posture?.head_pose?.head_score || 0,
+      feedback: analysisResult?.posture?.head_pose?.head_feedback || "",
+    },
+    {
+      key: "emotion",
+      label: "표정",
+      score: analysisResult?.posture?.emotion?.emotion_score || 0,
+      feedback: analysisResult?.posture?.emotion?.emotion_feedback || "",
+    },
+    {
+      key: "gaze",
+      label: "시선",
+      score: analysisResult?.posture?.gaze?.gaze_score || 0,
+      feedback: analysisResult?.posture?.gaze?.gaze_feedback || "",
+    },
+    {
+      key: "gesture",
+      label: "손동작",
+      score: analysisResult?.posture?.gesture?.gesture_score || 0,
+      feedback: analysisResult?.posture?.gesture?.gesture_feedback || "",
+    },
+  ];
+
+  const videoTimeline = videoDashboard?.timeline || [];
 
   const voiceScore = analysisResult?.voice?.score || 85;
   const speedWpm = analysisResult?.voice?.speed_wpm || 140;
@@ -254,7 +289,12 @@ function DashboardPage() {
         </section>
 
         {selectedAnalysis === "video" && (
-          <VideoDetail score={postureScore} feedback={postureFeedback} />
+          <VideoDetail
+            score={postureScore}
+            feedback={postureFeedback}
+            metrics={videoMetrics}
+            timeline={videoTimeline}
+          />
         )}
 
         {selectedAnalysis === "voice" && (
@@ -400,27 +440,124 @@ function DetailScore({ score, label }) {
   );
 }
 
-function VideoDetail({ score, feedback }) {
+function VideoDetail({ score, feedback, metrics, timeline }) {
   return (
     <section style={cardStyle}>
       <h3 style={sectionTitle}>
-        <Target size={28} color="#6BB5A6" />
-        영상 분석 상세
+        <Video size={28} color="#6BB5A6" />
+        영상 분석 결과
       </h3>
 
-      <DetailScore score={score} label="영상 분석 점수" />
-
-      <p
-        style={{
-          fontSize: "18px",
-          color: "#4B5563",
-          lineHeight: "1.9",
-          whiteSpace: "pre-line",
-        }}
-      >
-        {feedback}
+      <p style={{ color: "#6B7C79", fontSize: "18px", lineHeight: "1.7", marginBottom: "28px" }}>
+        발표 영상을 기반으로 자세, 표정, 시선, 손동작을 종합 분석했습니다.
       </p>
+
+      <div style={{ background: "#EEF8F4", borderRadius: "26px", padding: "30px", marginBottom: "28px" }}>
+        <p style={{ color: "#6B7C79", fontWeight: "800", marginBottom: "8px" }}>
+          종합 태도 점수
+        </p>
+        <strong style={{ display: "block", fontSize: "56px", color: "#6BB5A6", fontWeight: "900", marginBottom: "18px" }}>
+          {score}점
+        </strong>
+        <p style={{ color: "#2D3A3A", fontSize: "18px", lineHeight: "1.8", whiteSpace: "pre-line" }}>
+          {feedback}
+        </p>
+      </div>
+
+      <div style={{ background: "#F8FCFA", borderRadius: "26px", padding: "30px", border: "1px solid #E4F0EA", marginBottom: "28px" }}>
+        <h4 style={{ fontSize: "24px", color: "#2D3A3A", fontWeight: "900", marginBottom: "24px" }}>
+          항목별 태도 점수
+        </h4>
+
+        <div style={{ display: "grid", gap: "22px" }}>
+          {metrics.map((item) => (
+            <VideoMetricRow key={item.key || item.label} item={item} />
+          ))}
+        </div>
+      </div>
+
+      <div style={{ background: "#F8FCFA", borderRadius: "26px", padding: "30px", border: "1px solid #E4F0EA", marginBottom: "28px" }}>
+        <h4 style={{ fontSize: "24px", color: "#2D3A3A", fontWeight: "900", marginBottom: "24px" }}>
+          시간 구간별 점수 변화
+        </h4>
+
+        {timeline.length > 0 ? (
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "16px" }}>
+            <thead>
+              <tr style={{ background: "#EEF8F4" }}>
+                <th style={tableHeaderStyle}>시간</th>
+                <th style={tableHeaderStyle}>고개 방향</th>
+                <th style={tableHeaderStyle}>표정</th>
+                <th style={tableHeaderStyle}>시선</th>
+                <th style={tableHeaderStyle}>손동작</th>
+              </tr>
+            </thead>
+            <tbody>
+              {timeline.map((item, index) => (
+                <tr key={index}>
+                  <td style={tableCellStyle}>{item.time}</td>
+                  <td style={tableCellStyle}>{item.head_score}점</td>
+                  <td style={tableCellStyle}>{item.emotion_score}점</td>
+                  <td style={tableCellStyle}>{item.gaze_score}점</td>
+                  <td style={tableCellStyle}>{item.gesture_score}점</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p style={{ color: "#6B7C79" }}>
+            시간 구간별 분석 데이터는 아직 없습니다.
+          </p>
+        )}
+      </div>
+
+      <div style={{ background: "#F8FCFA", borderRadius: "26px", padding: "30px", border: "1px solid #E4F0EA" }}>
+        <h4 style={{ fontSize: "24px", color: "#2D3A3A", fontWeight: "900", marginBottom: "24px" }}>
+          항목별 피드백
+        </h4>
+
+        <div style={{ display: "grid", gap: "14px" }}>
+          {metrics.map((item) => (
+            <div key={item.key || item.label} style={{ background: "white", borderRadius: "18px", padding: "20px 22px", border: "1px solid #E4F0EA" }}>
+              <strong style={{ display: "block", color: "#2D3A3A", fontSize: "18px", marginBottom: "10px" }}>
+                {item.label}
+              </strong>
+              <p style={{ color: "#4B5563", lineHeight: "1.8", whiteSpace: "pre-line" }}>
+                {item.feedback}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
     </section>
+  );
+}
+
+function VideoMetricRow({ item }) {
+  const score = item.score ?? 0;
+  const warning = score < 60;
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "150px 70px 1fr", gap: "20px", alignItems: "center" }}>
+      <strong style={{ color: "#2D3A3A", fontSize: "18px" }}>
+        {item.label}
+      </strong>
+
+      <strong style={{ color: warning ? "#D99A2B" : "#6BB5A6", fontSize: "18px" }}>
+        {score}점
+      </strong>
+
+      <div style={{ height: "12px", background: "#E4F0EA", borderRadius: "999px", overflow: "hidden" }}>
+        <div
+          style={{
+            width: `${score}%`,
+            height: "100%",
+            background: warning ? "#D99A2B" : "#6BB5A6",
+            borderRadius: "999px",
+          }}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -722,6 +859,21 @@ const cardStyle = {
   boxShadow: "0 10px 30px rgba(0,0,0,0.05)",
   border: "1px solid #E4F0EA",
   marginBottom: "28px",
+};
+
+const tableHeaderStyle = {
+  padding: "16px",
+  textAlign: "center",
+  fontWeight: "900",
+  color: "#2D3A3A",
+  borderBottom: "1px solid #DDEBE6",
+};
+
+const tableCellStyle = {
+  padding: "16px",
+  textAlign: "center",
+  color: "#4B5563",
+  borderBottom: "1px solid #E4F0EA",
 };
 
 const sectionTitle = {
