@@ -158,9 +158,24 @@ if __name__ == "__main__":
     import sys
     video_path  = sys.argv[1] if len(sys.argv) > 1 else os.path.join(BASE_DIR, "video", "test_video.mp4")
     rotate_mode = sys.argv[2] if len(sys.argv) > 2 else "none"
+    show_video  = sys.argv[3] == "show" if len(sys.argv) > 3 else False
 
     print("=== 촬영 가이드라인 검사 ===")
     print(f"영상: {video_path}\n")
+
+    # show_video 모드: 영상 프레임 직접 확인
+    if show_video:
+        cap = cv2.VideoCapture(video_path)
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            frame = rotate_frame(frame, rotate_mode)
+            cv2.imshow("Camera Guide Preview (ESC to exit)", frame)
+            if cv2.waitKey(30) & 0xFF == 27:
+                break
+        cap.release()
+        cv2.destroyAllWindows()
 
     result = check_camera_guide(video_path, rotate_mode=rotate_mode)
 
