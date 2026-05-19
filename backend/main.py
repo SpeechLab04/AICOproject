@@ -78,7 +78,7 @@ async def upload_video(
 
         # 4. 영상 분석 실행
         vision_result = analyze_vision(file_path)
-        if not vision_result.get("is_valid", False):
+        if vision_result.get("is_valid") is False:
             vision_result = {
                 "camera_guide": vision_result.get("camera_guide", {}),
                 "is_valid": False,
@@ -150,14 +150,14 @@ async def upload_video(
                 "전반적으로 안정적인 발표였으나 일부 보완이 필요합니다."
             ),
             "posture": {
-                "score": vision_result["delivery_score"],
-                "feedback": vision_result["delivery_feedback"],
-                "head_pose": vision_result["head_pose"],
-                "emotion": vision_result["emotion"],
-                "gaze": vision_result["gaze"],
-                "gesture": vision_result["gesture"],
-                "analysis_time": vision_result["analysis_time"],
-                "video_dashboard": vision_result["video_dashboard"],
+                "score": vision_result.get("delivery_score", 0),
+                "feedback": vision_result.get("delivery_feedback", ""),
+                "head_pose": vision_result.get("head_pose", {}),
+                "emotion": vision_result.get("emotion", {}),
+                "gaze": vision_result.get("gaze", {}),
+                "gesture": vision_result.get("gesture", {}),
+                "analysis_time": vision_result.get("analysis_time", 0),
+                "video_dashboard": vision_result.get("video_dashboard", {}),
             },
             "voice": {
                 "score": 0,

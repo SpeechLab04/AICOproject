@@ -9,7 +9,7 @@ mp_drawing = mp.solutions.drawing_utils
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 VIDEO_PATH = os.path.join(BASE_DIR, "video", "test_video.mp4")
 
-ROTATE_MODE = "ccw"   # "none", "cw", "ccw", "180"
+ROTATE_MODE = "ccw"
 SHOW_VIDEO = True
 DRAW_LANDMARKS = True
 PREVIEW_MAX_WIDTH = 480
@@ -56,34 +56,27 @@ def get_avg_point(landmarks, indices):
 def get_gaze_metrics(face_landmarks):
     landmarks = face_landmarks.landmark
 
-    # 왼쪽 눈 양 끝
     left_eye_outer = landmarks[33]
     left_eye_inner = landmarks[133]
 
-    # 오른쪽 눈 양 끝
     right_eye_inner = landmarks[362]
     right_eye_outer = landmarks[263]
 
-    # 홍채(iris) 중심 계산용
     left_iris_indices = [468, 469, 470, 471, 472]
     right_iris_indices = [473, 474, 475, 476, 477]
 
-    # 왼쪽 눈 중심 / 홍채 중심
     left_eye_center_x, _ = get_eye_center(left_eye_outer, left_eye_inner)
     left_iris_center_x, _ = get_avg_point(landmarks, left_iris_indices)
 
-    # 오른쪽 눈 중심 / 홍채 중심
     right_eye_center_x, _ = get_eye_center(right_eye_inner, right_eye_outer)
     right_iris_center_x, _ = get_avg_point(landmarks, right_iris_indices)
 
-    # 각 눈 너비
     left_eye_width = abs(left_eye_inner.x - left_eye_outer.x)
     right_eye_width = abs(right_eye_outer.x - right_eye_inner.x)
 
     if left_eye_width == 0 or right_eye_width == 0:
         return None
 
-    # 눈 중심 대비 홍채 중심의 상대 위치
     left_offset = (left_iris_center_x - left_eye_center_x) / left_eye_width
     right_offset = (right_iris_center_x - right_eye_center_x) / right_eye_width
 
@@ -104,68 +97,76 @@ def classify_gaze(avg_offset):
         return "left"
     elif avg_offset > right_threshold:
         return "right"
+
     return "center"
 
 
 def calculate_gaze_score(gaze_ratio):
     center = gaze_ratio.get("center", 0)
-    left   = gaze_ratio.get("left",   0)
-    right  = gaze_ratio.get("right",  0)
+    left = gaze_ratio.get("left", 0)
+    right = gaze_ratio.get("right", 0)
 
     lr = left + right
 
-    # ── 구간 기반 기본 점수 (center 비율 기준) ──
-    if center > 70:
-        score = 88
-    elif center > 55:
-        score = 73
-    elif center > 40:
-        score = 57
-    else:
-        score = 38
+    score = 40
+    score += center * 0.45
 
-    # ── 세부 보정 ──
-    # 좌우 적당히 → 청중 고르게 바라보는 자연스러운 시선
     if 10 <= lr <= 25:
         score += 5
-    elif lr > 45:
-        score -= 10
+    elif lr > 40:
+        score -= (lr - 40) * 0.4
 
     return max(0, min(100, round(score)))
 
 
 def get_gaze_feedback(gaze_ratio):
     center = gaze_ratio.get("center", 0)
-    left   = gaze_ratio.get("left",   0)
-    right  = gaze_ratio.get("right",  0)
+    left = gaze_ratio.get("left", 0)
+    right = gaze_ratio.get("right", 0)
 
     lr = left + right
 
     if center >= 70:
-        return (
-            "카메라(청중)를 향한 시선을 꾸준히 유지하고 있습니다. "
-            "시선이 흔들리지 않아 자신감 있고 집중력 있는 발표자로 보입니다. "
-            "실제 발표에서도 청중 한 명 한 명과 3~5초씩 눈을 맞추는 습관을 들이면 더욱 효과적입니다."
-        )
+        return "정면 시선을 비교적 안정적으로 유지하고 있습니다."
     elif 10 <= lr <= 30 and center >= 50:
-        return (
-            "정면을 유지하면서도 좌우로 자연스럽게 시선을 분산하고 있습니다. "
-            "실제 발표 상황에서 청중 전체를 고르게 바라보는 이상적인 시선 처리입니다. "
-            "왼쪽, 정면, 오른쪽 순서로 골고루 시선을 이동하면 모든 청중이 주목받는 느낌을 받습니다."
-        )
+        return "정면을 유지하면서도 좌우로 자연스럽게 시선을 분산하고 있습니다."
     elif lr > 40:
-        return (
-            "좌우 시선 이동이 많아 시선이 산만해 보일 수 있습니다. "
-            "긴장하면 시선이 불안정해지는 경향이 있습니다. "
-            "카메라 렌즈를 청중의 눈이라고 생각하고, 말할 때는 렌즈를 바라보는 연습을 해보세요. "
-            "한 문장을 말하는 동안 시선을 한 곳에 고정하는 것부터 시작하면 좋습니다."
-        )
+        return "좌우 시선 이동이 다소 많아 시선이 산만해 보일 수 있습니다."
     else:
-        return (
-            "전반적으로 무난한 시선 처리를 보여주고 있습니다. "
-            "카메라를 눈높이에 맞게 정면에 두고, 렌즈 바로 위에 작은 스티커를 붙여두면 "
-            "자연스럽게 정면을 바라보는 데 도움이 됩니다."
-        )
+        return "전반적으로 무난하지만 시선을 조금 더 안정적으로 유지하면 좋습니다."
+
+
+def format_time(seconds):
+    minutes = int(seconds // 60)
+    seconds = int(seconds % 60)
+    return f"{minutes:02d}:{seconds:02d}"
+
+
+def get_segment_index(frame_index, total_frames, segment_count=10):
+    if total_frames <= 0:
+        return 0
+
+    ratio = frame_index / total_frames
+    index = int(ratio * segment_count)
+
+    if index >= segment_count:
+        index = segment_count - 1
+
+    return index
+
+
+def make_ratio(counts, total):
+    if total <= 0:
+        return {
+            "left": 0,
+            "right": 0,
+            "center": 0,
+        }
+
+    return {
+        key: round((value / total) * 100)
+        for key, value in counts.items()
+    }
 
 
 def analyze_gaze(
@@ -174,12 +175,16 @@ def analyze_gaze(
     show_video=True,
     rotate_mode="none",
     preview_max_width=480,
-    draw_landmarks=True
+    draw_landmarks=True,
+    segment_count=10,
 ):
     cap = cv2.VideoCapture(video_path)
 
     if not cap.isOpened():
         raise ValueError(f"비디오를 열 수 없습니다: {video_path}")
+
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    total_video_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
     gaze_counts = {
         "left": 0,
@@ -187,7 +192,20 @@ def analyze_gaze(
         "center": 0
     }
 
+    segment_counts = [
+        {
+            "left": 0,
+            "right": 0,
+            "center": 0
+        }
+        for _ in range(segment_count)
+    ]
+
+    segment_totals = [0 for _ in range(segment_count)]
+
     total_frames = 0
+    frame_index = 0
+
     gaze_buffer = deque(maxlen=smoothing_window)
 
     if show_video:
@@ -206,6 +224,8 @@ def analyze_gaze(
             if not ret:
                 break
 
+            frame_index += 1
+
             frame = rotate_frame(frame, rotate_mode)
             total_frames += 1
 
@@ -221,9 +241,20 @@ def analyze_gaze(
 
                 if metrics is not None:
                     gaze = classify_gaze(metrics["avg_offset"])
+
                     gaze_buffer.append(gaze)
                     stable_gaze = max(set(gaze_buffer), key=gaze_buffer.count)
+
                     gaze_counts[stable_gaze] += 1
+
+                    segment_index = get_segment_index(
+                        frame_index,
+                        total_video_frames,
+                        segment_count
+                    )
+
+                    segment_counts[segment_index][stable_gaze] += 1
+                    segment_totals[segment_index] += 1
 
                 if draw_landmarks:
                     key_points = [
@@ -231,8 +262,16 @@ def analyze_gaze(
                         468, 469, 470, 471, 472,
                         473, 474, 475, 476, 477
                     ]
+
                     for idx in key_points:
-                        draw_point(frame, face_landmarks, idx, color=(0, 255, 0), radius=2)
+                        draw_point(
+                            frame,
+                            face_landmarks,
+                            idx,
+                            color=(0, 255, 0),
+                            radius=2
+                        )
+
             else:
                 gaze_counts["center"] += 1
 
@@ -247,36 +286,11 @@ def analyze_gaze(
                     2
                 )
 
-                if metrics is not None:
-                    cv2.putText(
-                        frame,
-                        f"avg_offset: {metrics['avg_offset']:.3f}",
-                        (20, 70),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        0.6,
-                        (255, 255, 255),
-                        2
-                    )
-                    cv2.putText(
-                        frame,
-                        f"left_offset: {metrics['left_offset']:.3f}",
-                        (20, 98),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        0.55,
-                        (255, 255, 255),
-                        2
-                    )
-                    cv2.putText(
-                        frame,
-                        f"right_offset: {metrics['right_offset']:.3f}",
-                        (20, 126),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        0.55,
-                        (255, 255, 255),
-                        2
-                    )
+                preview = resize_for_preview(
+                    frame,
+                    max_width=preview_max_width
+                )
 
-                preview = resize_for_preview(frame, max_width=preview_max_width)
                 cv2.imshow("Gaze Analysis", preview)
 
                 key = cv2.waitKey(1) & 0xFF
@@ -289,20 +303,42 @@ def analyze_gaze(
     if total_frames == 0:
         raise ValueError("처리된 프레임이 없습니다.")
 
-    gaze_ratio = {
-        key: round((value / total_frames) * 100, 2)
-        for key, value in gaze_counts.items()
-    }
+    gaze_ratio = make_ratio(gaze_counts, total_frames)
 
     gaze_score = calculate_gaze_score(gaze_ratio)
     gaze_feedback = get_gaze_feedback(gaze_ratio)
+
+    timeline = []
+
+    duration = total_video_frames / fps if fps and fps > 0 else 0
+
+    for i in range(segment_count):
+        if segment_count == 1:
+            current_time = 0
+        else:
+            current_time = duration * (i / (segment_count - 1))
+
+        segment_ratio = make_ratio(
+            segment_counts[i],
+            segment_totals[i]
+        )
+
+        segment_score = calculate_gaze_score(segment_ratio)
+
+        timeline.append({
+            "time": format_time(current_time),
+            "gaze_score": segment_score,
+            "gaze_ratio": segment_ratio,
+            "detected_frames": segment_totals[i],
+        })
 
     return {
         "total_frames": total_frames,
         "gaze_counts": gaze_counts,
         "gaze_ratio": gaze_ratio,
         "gaze_score": gaze_score,
-        "gaze_feedback": gaze_feedback
+        "gaze_feedback": gaze_feedback,
+        "timeline": timeline,
     }
 
 
@@ -324,3 +360,4 @@ if __name__ == "__main__":
     print(f"시선별 비율(%): {result['gaze_ratio']}")
     print(f"시선 점수: {result['gaze_score']}")
     print(f"시선 피드백: {result['gaze_feedback']}")
+    print(f"timeline: {result['timeline']}")

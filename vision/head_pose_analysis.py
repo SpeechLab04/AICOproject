@@ -7,11 +7,11 @@ mp_face_mesh = mp.solutions.face_mesh
 
 
 def get_head_metrics(landmarks):
-    nose = landmarks[1]          # 코 끝
-    left_face = landmarks[234]   # 얼굴 왼쪽
-    right_face = landmarks[454]  # 얼굴 오른쪽
-    top_face = landmarks[10]     # 이마 위쪽
-    chin = landmarks[152]        # 턱
+    nose = landmarks[1]
+    left_face = landmarks[234]
+    right_face = landmarks[454]
+    top_face = landmarks[10]
+    chin = landmarks[152]
 
     center_x = (left_face.x + right_face.x) / 2
     face_width = right_face.x - left_face.x
@@ -31,13 +31,11 @@ def classify_head_direction(avg_x_offset, avg_y_ratio):
     up_threshold = 0.44
     down_threshold = 0.60
 
-    # 좌우 먼저 판별
     if avg_x_offset > front_x_threshold:
         return "right"
     elif avg_x_offset < -front_x_threshold:
         return "left"
 
-    # 상하 판별
     if avg_y_ratio < up_threshold:
         return "up"
     elif avg_y_ratio > down_threshold:
@@ -45,92 +43,98 @@ def classify_head_direction(avg_x_offset, avg_y_ratio):
 
     return "front"
 
+
 def calculate_head_score(ratios):
     front = ratios.get("front", 0)
-    left  = ratios.get("left",  0)
+    left = ratios.get("left", 0)
     right = ratios.get("right", 0)
-    down  = ratios.get("down",  0)
+    up = ratios.get("up", 0)
+    down = ratios.get("down", 0)
 
     lr = left + right
+    score = 100
 
-    # ── 구간 기반 기본 점수 (front 비율 기준) ──
-    if front > 70 and down < 10:
-        score = 88
-    elif front > 60:
-        score = 75
-    elif front > 45:
-        score = 60
-    elif front > 30:
-        score = 45
-    else:
-        score = 30
+    if front < 40:
+        score -= (40 - front) * 1.2
 
-    # ── 세부 보정 ──
-    if down > 30:
-        score -= 15
+    score -= down * 1.0
+    score -= up * 0.2
+
     if 10 <= lr <= 30:
-        score += 5
+        score += 3
     elif lr > 40:
-        score -= 5
+        score -= (lr - 40) * 0.3
 
     return max(0, min(100, round(score)))
 
 
 def get_head_feedback(ratios):
     front = ratios.get("front", 0)
-    left  = ratios.get("left",  0)
+    left = ratios.get("left", 0)
     right = ratios.get("right", 0)
-    down  = ratios.get("down",  0)
-    up    = ratios.get("up",    0)
+    down = ratios.get("down", 0)
+    up = ratios.get("up", 0)
 
     lr = left + right
 
     if down >= 30:
-        return (
-            "발표 중 아래를 보는 비율이 높습니다. 원고나 자료를 읽는 습관이 있는 것 같아요. "
-            "청중과의 눈 맞춤이 줄어들면 발표 신뢰도가 낮아질 수 있습니다. "
-            "내용을 충분히 숙지한 뒤 카메라(청중)를 바라보며 말하는 연습을 해보세요. "
-            "슬라이드 넘길 때만 잠깐 시선을 내리고, 말할 때는 정면을 유지하는 것이 좋습니다."
-        )
+        return "아래를 보는 비율이 높아 청중과의 시선 연결이 약해 보일 수 있습니다."
     elif front >= 70 and down <= 10:
-        return (
-            "발표 내내 정면을 안정적으로 유지하고 있습니다. "
-            "원고를 읽거나 시선이 분산되는 모습 없이 청중과 자연스럽게 눈을 맞추고 있어 "
-            "집중력 있고 자신감 있는 발표 태도를 보여주고 있습니다."
-        )
+        return "정면을 안정적으로 잘 유지한 발표 자세입니다."
     elif front >= 50 and 10 <= lr <= 30:
-        return (
-            "정면을 잘 유지하면서도 좌우로 자연스럽게 시선을 분산하고 있습니다. "
-            "실제 발표 상황에서 청중 전체를 고르게 바라보는 이상적인 고개 방향입니다. "
-            "이 습관을 유지하면 청중 모두가 발표자와 눈을 맞추는 느낌을 받을 수 있습니다."
-        )
+        return "정면을 잘 유지하면서도 청중을 고르게 바라보는 자연스러운 발표 자세입니다."
     elif front < 35:
-        return (
-            "정면을 유지하는 비율이 낮아 다소 산만해 보일 수 있습니다. "
-            "발표 중 고개가 자주 돌아가면 청중이 발표자의 자신감 부족으로 느낄 수 있어요. "
-            "카메라를 눈높이에 맞게 정면에 두고, 카메라 렌즈를 청중의 눈이라 생각하며 "
-            "바라보는 연습을 해보세요."
-        )
+        return "정면을 유지하는 비율이 낮아 다소 산만해 보일 수 있습니다."
     elif up >= 20:
-        return (
-            "위쪽을 보는 비율이 다소 높습니다. "
-            "생각을 정리하거나 내용을 떠올릴 때 시선이 위로 올라가는 습관이 있는 것 같아요. "
-            "내용을 충분히 연습해 자연스럽게 정면을 유지할 수 있도록 해보세요."
-        )
+        return "위쪽을 보는 비율이 다소 높아 보여 시선을 조금 더 안정적으로 유지하면 좋습니다."
     else:
-        return (
-            "전반적으로 안정적인 고개 방향을 유지하고 있습니다. "
-            "정면 응시를 조금 더 의식적으로 늘리면 청중에게 더 강한 신뢰감을 줄 수 있습니다. "
-            "발표 전 카메라를 정면에 두고 눈높이를 맞추는 것부터 시작해보세요."
-        )
+        return "전반적으로 안정적인 자세이지만, 정면 응시를 조금 더 의식하면 더 좋은 인상을 줄 수 있습니다."
 
 
-def analyze_head_pose(video_path, buffer_size=15, show_video=True, rotate_mode="none"):
+def format_time(seconds):
+    minutes = int(seconds // 60)
+    seconds = int(seconds % 60)
+    return f"{minutes:02d}:{seconds:02d}"
+
+
+def get_segment_index(frame_index, total_frames, segment_count=10):
+    if total_frames <= 0:
+        return 0
+
+    ratio = frame_index / total_frames
+    index = int(ratio * segment_count)
+
+    if index >= segment_count:
+        index = segment_count - 1
+
+    return index
+
+
+def make_ratio(counts, total):
+    if total <= 0:
+        return {
+            "left": 0,
+            "right": 0,
+            "up": 0,
+            "down": 0,
+            "front": 0,
+        }
+
+    return {
+        key: round((value / total) * 100)
+        for key, value in counts.items()
+    }
+
+
+def analyze_head_pose(video_path, buffer_size=15, show_video=True, segment_count=10):
     cap = cv2.VideoCapture(video_path)
 
     if not cap.isOpened():
         print("영상을 열 수 없습니다.")
         return None
+
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    total_video_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
     x_offset_buffer = deque(maxlen=buffer_size)
     y_ratio_buffer = deque(maxlen=buffer_size)
@@ -140,17 +144,34 @@ def analyze_head_pose(video_path, buffer_size=15, show_video=True, rotate_mode="
         "right": 0,
         "up": 0,
         "down": 0,
-        "front": 0
+        "front": 0,
     }
 
+    segment_counts = [
+        {
+            "left": 0,
+            "right": 0,
+            "up": 0,
+            "down": 0,
+            "front": 0,
+        }
+        for _ in range(segment_count)
+    ]
+
+    segment_totals = [0 for _ in range(segment_count)]
+
     total_processed_frames = 0
+    frame_index = 0
+
+    avg_x_offset = 0
+    avg_y_ratio = 0
 
     with mp_face_mesh.FaceMesh(
         static_image_mode=False,
         max_num_faces=1,
         refine_landmarks=True,
         min_detection_confidence=0.5,
-        min_tracking_confidence=0.5
+        min_tracking_confidence=0.5,
     ) as face_mesh:
 
         while True:
@@ -158,19 +179,12 @@ def analyze_head_pose(video_path, buffer_size=15, show_video=True, rotate_mode="
             if not ret:
                 break
 
-            # 회전 보정 (rotate_mode 파라미터에 따라 처리)
-            if rotate_mode == "cw":
-                frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
-            elif rotate_mode == "ccw":
-                frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
-            elif rotate_mode == "180":
-                frame = cv2.rotate(frame, cv2.ROTATE_180)
+            frame_index += 1
 
-            # 화면 표시용 크기 조절
+            frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
             result = face_mesh.process(rgb_frame)
-
             stable_direction = "no_face"
 
             if result.multi_face_landmarks:
@@ -186,12 +200,22 @@ def analyze_head_pose(video_path, buffer_size=15, show_video=True, rotate_mode="
                     avg_x_offset = sum(x_offset_buffer) / len(x_offset_buffer)
                     avg_y_ratio = sum(y_ratio_buffer) / len(y_ratio_buffer)
 
-                    stable_direction = classify_head_direction(avg_x_offset, avg_y_ratio)
+                    stable_direction = classify_head_direction(
+                        avg_x_offset,
+                        avg_y_ratio
+                    )
 
                     direction_counts[stable_direction] += 1
                     total_processed_frames += 1
 
-                    # 주요 점 좌표 표시
+                    segment_index = get_segment_index(
+                        frame_index,
+                        total_video_frames,
+                        segment_count
+                    )
+                    segment_counts[segment_index][stable_direction] += 1
+                    segment_totals[segment_index] += 1
+
                     h, w, _ = frame.shape
                     for idx in [1, 10, 152, 234, 454]:
                         x = int(landmarks[idx].x * w)
@@ -202,7 +226,10 @@ def analyze_head_pose(video_path, buffer_size=15, show_video=True, rotate_mode="
                 display_width = 720
                 h, w, _ = frame.shape
                 display_height = int(h * (display_width / w))
-                display_frame = cv2.resize(frame, (display_width, display_height))
+                display_frame = cv2.resize(
+                    frame,
+                    (display_width, display_height)
+                )
 
                 cv2.putText(
                     display_frame,
@@ -211,17 +238,32 @@ def analyze_head_pose(video_path, buffer_size=15, show_video=True, rotate_mode="
                     cv2.FONT_HERSHEY_SIMPLEX,
                     1,
                     (0, 0, 255),
-                    2
+                    2,
                 )
 
-                cv2.putText(display_frame, f"x_offset: {avg_x_offset:.3f}", (20, 80),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-                cv2.putText(display_frame, f"y_ratio: {avg_y_ratio:.3f}", (20, 110),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+                cv2.putText(
+                    display_frame,
+                    f"x_offset: {avg_x_offset:.3f}",
+                    (20, 80),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (255, 255, 255),
+                    2,
+                )
+
+                cv2.putText(
+                    display_frame,
+                    f"y_ratio: {avg_y_ratio:.3f}",
+                    (20, 110),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (255, 255, 255),
+                    2,
+                )
 
                 cv2.imshow("Head Pose Analysis", display_frame)
                 key = cv2.waitKey(1) & 0xFF
-                if key == 27:  # ESC
+                if key == 27:
                     break
 
     cap.release()
@@ -231,20 +273,37 @@ def analyze_head_pose(video_path, buffer_size=15, show_video=True, rotate_mode="
         print("얼굴이 검출된 프레임이 없습니다.")
         return None
 
-    direction_ratio = {
-        key: round((value / total_processed_frames) * 100)
-        for key, value in direction_counts.items()
-    }
-
+    direction_ratio = make_ratio(direction_counts, total_processed_frames)
     head_score = calculate_head_score(direction_ratio)
     head_feedback = get_head_feedback(direction_ratio)
+
+    timeline = []
+
+    duration = total_video_frames / fps if fps and fps > 0 else 0
+
+    for i in range(segment_count):
+        if segment_count == 1:
+            current_time = 0
+        else:
+            current_time = duration * (i / (segment_count - 1))
+
+        segment_ratio = make_ratio(segment_counts[i], segment_totals[i])
+        segment_score = calculate_head_score(segment_ratio)
+
+        timeline.append({
+            "time": format_time(current_time),
+            "head_score": segment_score,
+            "head_ratio": segment_ratio,
+            "detected_frames": segment_totals[i],
+        })
 
     return {
         "counts": direction_counts,
         "ratios": direction_ratio,
         "total_frames": total_processed_frames,
         "head_score": head_score,
-        "head_feedback": head_feedback
+        "head_feedback": head_feedback,
+        "timeline": timeline,
     }
 
 
@@ -262,3 +321,4 @@ if __name__ == "__main__":
         print("방향별 비율(%):", result["ratios"])
         print("고개 방향 점수:", result["head_score"])
         print("피드백:", result["head_feedback"])
+        print("timeline:", result["timeline"])
