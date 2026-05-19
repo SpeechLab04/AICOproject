@@ -482,28 +482,7 @@ function VideoDetail({ score, feedback, metrics, timeline }) {
         </h4>
 
         {timeline.length > 0 ? (
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "16px" }}>
-            <thead>
-              <tr style={{ background: "#EEF8F4" }}>
-                <th style={tableHeaderStyle}>시간</th>
-                <th style={tableHeaderStyle}>고개 방향</th>
-                <th style={tableHeaderStyle}>표정</th>
-                <th style={tableHeaderStyle}>시선</th>
-                <th style={tableHeaderStyle}>손동작</th>
-              </tr>
-            </thead>
-            <tbody>
-              {timeline.map((item, index) => (
-                <tr key={index}>
-                  <td style={tableCellStyle}>{item.time}</td>
-                  <td style={tableCellStyle}>{item.head_score}점</td>
-                  <td style={tableCellStyle}>{item.emotion_score}점</td>
-                  <td style={tableCellStyle}>{item.gaze_score}점</td>
-                  <td style={tableCellStyle}>{item.gesture_score}점</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <TimelineChart data={timeline} />
         ) : (
           <p style={{ color: "#6B7C79" }}>
             시간 구간별 분석 데이터는 아직 없습니다.
@@ -556,6 +535,161 @@ function VideoMetricRow({ item }) {
             borderRadius: "999px",
           }}
         />
+      </div>
+    </div>
+  );
+}
+
+function TimelineChart({ data }) {
+  const [hovered, setHovered] = useState(null);
+
+  const width = 900;
+  const height = 300;
+  const padding = 46;
+
+  const getX = (index) =>
+    padding + (index * (width - padding * 2)) / (data.length - 1);
+
+  const getY = (score) =>
+    height - padding - (score / 100) * (height - padding * 2);
+
+  const makeLine = (key) =>
+    data.map((item, index) => `${getX(index)},${getY(item[key])}`).join(" ");
+
+  const lines = [
+    { key: "head_score", label: "고개 방향", color: "#6BB5A6" },
+    { key: "emotion_score", label: "표정", color: "#D99A2B" },
+    { key: "gaze_score", label: "시선", color: "#94CDD8" },
+    { key: "gesture_score", label: "손동작", color: "#9BC870" },
+  ];
+
+  return (
+    <div style={{ overflowX: "auto" }}>
+      <svg width={width} height={height}>
+        {[0, 25, 50, 75, 100].map((value) => (
+          <g key={value}>
+            <line
+              x1={padding}
+              x2={width - padding}
+              y1={getY(value)}
+              y2={getY(value)}
+              stroke="#E4F0EA"
+            />
+            <text x="10" y={getY(value) + 5} fontSize="13" fill="#6B7C79">
+              {value}
+            </text>
+          </g>
+        ))}
+
+        {data.map((item, index) => (
+          <text
+            key={item.time}
+            x={getX(index) - 16}
+            y={height - 12}
+            fontSize="13"
+            fill="#6B7C79"
+          >
+            {item.time}
+          </text>
+        ))}
+
+        {lines.map((line) => (
+          <polyline
+            key={line.key}
+            points={makeLine(line.key)}
+            fill="none"
+            stroke={line.color}
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        ))}
+
+        {lines.map((line) =>
+          data.map((item, index) => {
+            const x = getX(index);
+            const y = getY(item[line.key]);
+
+            return (
+              <g
+                key={`${line.key}-${index}`}
+                onMouseEnter={() =>
+                  setHovered({
+                    x,
+                    y,
+                    text: `${item.time} / ${line.label}: ${item[line.key]}점`,
+                  })
+                }
+                onMouseLeave={() => setHovered(null)}
+                style={{ cursor: "pointer" }}
+              >
+                <circle cx={x} cy={y} r="14" fill="transparent" />
+                <circle
+                  cx={x}
+                  cy={y}
+                  r="6"
+                  fill={line.color}
+                  stroke="white"
+                  strokeWidth="2"
+                />
+              </g>
+            );
+          })
+        )}
+
+        {hovered && (
+          <g>
+            {(() => {
+              const tooltipWidth = 190;
+              const tooltipHeight = 36;
+              const tooltipX = Math.max(
+                10,
+                Math.min(hovered.x - tooltipWidth / 2, width - tooltipWidth - 10)
+              );
+              const tooltipY = Math.max(10, hovered.y - 48);
+
+              return (
+                <>
+                  <rect
+                    x={tooltipX}
+                    y={tooltipY}
+                    width={tooltipWidth}
+                    height={tooltipHeight}
+                    rx="10"
+                    fill="#2D3A3A"
+                  />
+                  <text
+                    x={tooltipX + tooltipWidth / 2}
+                    y={tooltipY + 23}
+                    textAnchor="middle"
+                    fontSize="13"
+                    fill="white"
+                    fontWeight="700"
+                  >
+                    {hovered.text}
+                  </text>
+                </>
+              );
+            })()}
+          </g>
+        )}
+      </svg>
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          gap: "24px",
+          marginTop: "8px",
+          color: "#6B7C79",
+          fontSize: "15px",
+        }}
+      >
+        {lines.map((line) => (
+          <span key={line.key}>
+            <span style={{ color: line.color }}>●</span> {line.label}
+          </span>
+        ))}
       </div>
     </div>
   );

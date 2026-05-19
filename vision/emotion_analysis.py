@@ -156,18 +156,11 @@ def classify_emotion(face_landmarks):
 
 def calculate_emotion_score(emotion_ratio):
     positive = emotion_ratio.get("positive", 0)
+    neutral = emotion_ratio.get("neutral", 0)
 
-    # ── 구간 기반 기본 점수 (positive 비율 기준) ──
-    if positive > 50:
-        score = 90
-    elif positive > 30:
-        score = 75
-    elif positive > 15:
-        score = 60
-    elif positive > 5:
-        score = 45
-    else:
-        score = 32
+    score = 50
+    score += positive * 0.6   # 웃음 중요
+    score += neutral * 0.2    # 무표정도 기본점
 
     return max(0, min(100, round(score)))
 
@@ -175,31 +168,16 @@ def get_emotion_feedback(score, ratio):
     positive = ratio.get("positive", 0)
 
     if score >= 85:
-        return (
-            "발표 내내 자연스럽고 밝은 표정을 유지하고 있습니다. "
-            "미소는 청중과의 심리적 거리를 좁히고 발표 내용에 대한 신뢰감을 높여줍니다. "
-            "지금처럼 편안하고 긍정적인 표정을 유지하면 청중이 발표에 더 몰입하게 됩니다."
-        )
+        return "자연스럽고 밝은 표정으로 발표에 좋은 인상을 주고 있습니다."
+    
     elif score >= 70:
-        return (
-            "전반적으로 안정적인 표정을 유지하고 있습니다. "
-            "중요한 내용을 말할 때 미소를 조금 더 의식적으로 지어보세요. "
-            "억지 미소보다는 눈 주변 근육까지 함께 움직이는 자연스러운 미소가 효과적입니다."
-        )
+        return "전반적으로 안정적인 표정이지만, 조금 더 미소를 유지하면 더 좋습니다."
+    
     elif score >= 50:
-        return (
-            "표정 변화가 다소 부족해 무표정하게 보일 수 있습니다. "
-            "발표 전 거울을 보며 미소 짓는 연습을 해보세요. "
-            "입꼬리를 살짝 올리는 것만으로도 청중에게 훨씬 친근한 인상을 줄 수 있습니다. "
-            "특히 발표 시작과 끝에 미소로 인사하는 습관을 들여보세요."
-        )
+        return "표정 변화가 다소 부족하여 다소 무표정하게 보일 수 있습니다."
+    
     else:
-        return (
-            "표정이 전반적으로 굳어 있어 청중에게 긴장되거나 딱딱한 인상을 줄 수 있습니다. "
-            "발표 전 '이' 발음을 5초간 유지하거나, 볼을 부풀렸다 터트리는 표정 스트레칭을 해보세요. "
-            "또한 발표 중 청중과 눈이 마주쳤을 때 살짝 미소 짓는 연습을 반복하면 "
-            "자연스럽게 표정이 부드러워집니다."
-        )
+        return "표정이 굳어 보일 수 있어, 의식적으로 미소를 유지하는 연습이 필요합니다."
 
 
 def analyze_emotion(
