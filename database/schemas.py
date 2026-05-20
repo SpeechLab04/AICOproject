@@ -22,19 +22,18 @@ class RecordResponse(BaseModel):
     id: int
     user_nickname: str
     summary: Optional[str] = None
-
-    # ✅ 2. 혹시 질문이 없어도 에러 안 나게 빈 리스트 공장 설정
     persona_questions: List[QuestionDetail] = Field(default_factory=list)
-
     strength: Optional[str] = None
     weakness: Optional[str] = None
     improvement: Optional[str] = None
-
-    # ✅ 3. 어떤 점수라도 누락되었을 때 서버가 터지지 않게 안전장치 확보!
     content_score: Optional[float] = None
     delivery_score: Optional[float] = None
     final_score: Optional[float] = None
-
     created_at: datetime
+    
+    # 💡 [추가] 과거 대시보드를 그대로 그리기 위해 누락된 필드들을 스키마에 포함시켜 줍니다!
+    stt_result: Optional[str] = None
+    voice_analysis: Optional[Dict[str, Any]] = None
+    visual_analysis: Optional[Dict[str, Any]] = None
 
     model_config = ConfigDict(from_attributes=True)
