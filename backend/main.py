@@ -1,6 +1,7 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Form, BackgroundTasks
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form, BackgroundTasks, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.orm import Session
 import os
 import sys
 import json
@@ -9,19 +10,33 @@ from dotenv import load_dotenv
 import traceback
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+DATABASE_DIR = BASE_DIR / "database"
+
 if str(BASE_DIR) not in sys.path:
     sys.path.append(str(BASE_DIR))
 
 if str(BASE_DIR / "vision") not in sys.path:
     sys.path.append(str(BASE_DIR / "vision"))
 
+if str(DATABASE_DIR) not in sys.path:
+    sys.path.append(str(DATABASE_DIR))
+
 load_dotenv(dotenv_path=BASE_DIR / ".env")
 
+import database
+import models
+import auth
+import schemas
 from speech.speech_processor import process_voice_analysis, get_voice_result
 from llm.app.services.ai_feedback import get_ai_presentation_feedback
 from vision_service import analyze_vision
 
-app = FastAPI()
+
+app = FastAPI(title="AICO API")
+
+models.Base.metadata.create_all(bind=database.engine)
+
+app.include_router(auth.router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -46,7 +61,9 @@ def read_root():
 async def upload_video(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    selected_personas: str = Form("[]")
+    selected_personas: str = Form("[]"),
+    db: Session = Depends(database.get_db),
+    current_user: models.UserModel = Depends(auth.get_current_user),
 ):
     file_path = os.path.join(UPLOAD_DIR, file.filename)
 
@@ -56,19 +73,15 @@ async def upload_video(
         selected_personas = []
 
     try:
-        # 1. 업로드 파일 저장: vision 분석과 영상 URL 제공용
         with open(file_path, "wb") as buffer:
             content = await file.read()
             buffer.write(content)
 
-        # 2. speech_processor.py 함수는 UploadFile을 직접 받기 때문에 포인터 되돌리기
         file.file.seek(0)
 
-        # 3. 음성 분석 실행
         speech_result = process_voice_analysis(file, background_tasks)
 
         if not speech_result.get("success"):
-            print("SPEECH ERROR:", speech_result, flush=True)
             raise HTTPException(
                 status_code=500,
                 detail=speech_result.get("error", "음성 분석 실패")
@@ -76,8 +89,8 @@ async def upload_video(
 
         script_text = speech_result.get("full_script", "")
 
-        # 4. 영상 분석 실행
         vision_result = analyze_vision(file_path)
+
         if vision_result.get("is_valid") is False:
             vision_result = {
                 "camera_guide": vision_result.get("camera_guide", {}),
@@ -132,25 +145,48 @@ async def upload_video(
                 },
             }
 
-        # 5. LLM 분석 실행
         ai_result = await get_ai_presentation_feedback(
             script=script_text,
             selected_personas=selected_personas
         )
 
-        c_score = ai_result.get("content_score", 0.0)
+        content_feedback = ai_result.get("content_feedback", {})
+        content_score = ai_result.get("content_score", 0)
+        delivery_score = vision_result.get("delivery_score", 0)
+        final_score = ai_result.get("final_score", 0)
+
+        new_record = models.PresentationRecord(
+            user_id=current_user.id,
+            user_nickname=current_user.email,
+            stt_result=script_text,
+            summary=ai_result.get("summary", ""),
+            persona_questions=ai_result.get("persona_questions", []),
+            strength=content_feedback.get("strength", ""),
+            weakness=content_feedback.get("weakness", ""),
+            improvement=content_feedback.get("improvement", ""),
+            content_score=content_score,
+            delivery_score=delivery_score,
+            final_score=final_score,
+            voice_analysis=speech_result,
+            visual_analysis=vision_result,
+        )
+
+        db.add(new_record)
+        db.commit()
+        db.refresh(new_record)
 
         return {
             "message": "분석 완료",
+            "record_id": new_record.id,
             "filename": file.filename,
             "video_url": f"http://127.0.0.1:8000/uploads/{file.filename}",
-            "total_score": ai_result.get("final_score", 82),
+            "total_score": final_score,
             "summary": ai_result.get(
                 "summary",
                 "전반적으로 안정적인 발표였으나 일부 보완이 필요합니다."
             ),
             "posture": {
-                "score": vision_result.get("delivery_score", 0),
+                "score": delivery_score,
                 "feedback": vision_result.get("delivery_feedback", ""),
                 "head_pose": vision_result.get("head_pose", {}),
                 "emotion": vision_result.get("emotion", {}),
@@ -170,24 +206,91 @@ async def upload_video(
                 "file_id": speech_result.get("file_id"),
             },
             "script": {
-                "score": c_score,
+                "score": content_score,
                 "summary": ai_result.get("summary", ""),
                 "full_script": script_text,
                 "questions": ai_result.get("persona_questions", []),
-                "content_feedback": ai_result.get("content_feedback", {}),
-                "content_score": ai_result.get("content_score", 0),
-                "delivery_score": ai_result.get("delivery_score", 0),
-                "final_score": ai_result.get("final_score", 0),
+                "content_feedback": content_feedback,
+                "content_score": content_score,
+                "delivery_score": delivery_score,
+                "final_score": final_score,
             }
         }
 
-    except HTTPException as e:
-        print("HTTP ERROR:", e.detail, flush=True)
+    except HTTPException:
         raise
     except Exception as e:
+        db.rollback()
         print("UPLOAD ERROR:", str(e), flush=True)
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/records", response_model=list[schemas.RecordResponse])
+def get_my_records(
+    limit: int = 3,
+    offset: int = 0,
+    db: Session = Depends(database.get_db),
+    current_user: models.UserModel = Depends(auth.get_current_user),
+):
+    records = (
+        db.query(models.PresentationRecord)
+        .filter(models.PresentationRecord.user_id == current_user.id)
+        .order_by(models.PresentationRecord.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+        .all()
+    )
+    return records
+
+
+@app.get("/records/{record_id}", response_model=schemas.RecordResponse)
+def get_record_detail(
+    record_id: int,
+    db: Session = Depends(database.get_db),
+    current_user: models.UserModel = Depends(auth.get_current_user),
+):
+    record = (
+        db.query(models.PresentationRecord)
+        .filter(
+            models.PresentationRecord.id == record_id,
+            models.PresentationRecord.user_id == current_user.id
+        )
+        .first()
+    )
+
+    if not record:
+        raise HTTPException(status_code=404, detail="기록을 찾을 수 없습니다.")
+
+    return record
+
+
+@app.delete("/records/{record_id}", response_model=schemas.DeleteResponse)
+def delete_record(
+    record_id: int,
+    db: Session = Depends(database.get_db),
+    current_user: models.UserModel = Depends(auth.get_current_user),
+):
+    record = (
+        db.query(models.PresentationRecord)
+        .filter(
+            models.PresentationRecord.id == record_id,
+            models.PresentationRecord.user_id == current_user.id
+        )
+        .first()
+    )
+
+    if not record:
+        raise HTTPException(status_code=404, detail="삭제할 기록을 찾을 수 없습니다.")
+
+    db.delete(record)
+    db.commit()
+
+    return {
+        "status": "success",
+        "message": "발표 기록이 삭제되었습니다.",
+        "deleted_id": record_id,
+    }
 
 
 @app.get("/result/{file_id}")

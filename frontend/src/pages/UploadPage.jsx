@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Upload, FileVideo, CheckCircle } from "lucide-react";
 import Header from "../components/Header";
 
-
 function UploadPage() {
   const navigate = useNavigate();
   const isMobile = window.innerWidth < 768;
@@ -12,9 +11,7 @@ function UploadPage() {
   const [previewUrl, setPreviewUrl] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL="http://127.0.0.1:8000";
-    
+  const API_BASE_URL = "http://127.0.0.1:8000";
 
   const scenario =
     JSON.parse(localStorage.getItem("selectedScenario")) || {
@@ -50,12 +47,15 @@ function UploadPage() {
       return;
     }
 
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      alert("로그인이 필요합니다. 다시 로그인해주세요.");
+      navigate("/login");
+      return;
+    }
+
     setIsAnalyzing(true);
-
-
-    localStorage.removeItem("analysisResult");
-    localStorage.removeItem("uploadedVideoUrl");
-    localStorage.removeItem("uploadedVideoName");
 
     const formData = new FormData();
     formData.append("file", selectedFile);
@@ -68,10 +68,25 @@ function UploadPage() {
     formData.append("selected_personas", JSON.stringify(selectedPersonas));
 
     try {
+      console.log("업로드 토큰:", token);
+
       const response = await fetch(`${API_BASE_URL}/upload`, {
         method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
         body: formData,
       });
+
+      if (response.status === 401) {
+        alert("로그인이 만료되었습니다. 다시 로그인해주세요.");
+
+        localStorage.removeItem("token");
+        localStorage.removeItem("aicoUser");
+
+        navigate("/login");
+        return;
+      }
 
       if (!response.ok) {
         throw new Error("분석 실패");
@@ -203,15 +218,6 @@ function UploadPage() {
               cursor: "pointer",
               transition: "all 0.18s ease",
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = "translateY(-5px)";
-              e.currentTarget.style.boxShadow =
-                "0 14px 30px rgba(107,181,166,0.16)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = "translateY(0)";
-              e.currentTarget.style.boxShadow = "none";
-            }}
           >
             <input
               type="file"
@@ -321,20 +327,7 @@ function UploadPage() {
               fontWeight: "900",
               boxShadow: "0 8px 20px rgba(107,181,166,0.25)",
               cursor: isAnalyzing ? "not-allowed" : "pointer",
-              transform: "translateY(0)",
-              transition: "all 0.18s ease",
               opacity: selectedFile && !isAnalyzing ? 1 : 0.65,
-            }}
-            onMouseEnter={(e) => {
-              if (!selectedFile || isAnalyzing) return;
-              e.currentTarget.style.transform = "translateY(-5px)";
-              e.currentTarget.style.boxShadow =
-                "0 14px 28px rgba(107,181,166,0.35)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = "translateY(0)";
-              e.currentTarget.style.boxShadow =
-                "0 8px 20px rgba(107,181,166,0.25)";
             }}
           >
             {isAnalyzing ? "분석 중입니다..." : "분석 시작하기"}
