@@ -39,7 +39,9 @@ function DashboardPage() {
   const uploadedVideoUrl =
     analysisResult?.video_url || localStorage.getItem("uploadedVideoUrl");
 
-  const totalScore = analysisResult?.total_score || 83;
+  const totalScore = Math.round(
+    Number(analysisResult?.total_score || 83)
+  );
 
   const postureScore = analysisResult?.posture?.score || 0;
   const postureFeedback =

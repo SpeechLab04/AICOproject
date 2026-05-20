@@ -10,18 +10,75 @@ function LoginPage() {
   const [password, setPassword] = useState("");
   const [nickname, setNickname] = useState("");
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const userData = {
-      userId,
-      nickname: nickname || userId || "Guest User",
-      loginTime: new Date().toLocaleString(),
-    };
+    try {
+      // 회원가입
+      if (mode === "signup") {
+        const signupResponse = await fetch(
+          "http://127.0.0.1:8000/auth/register",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              email: userId,
+              password: password,
+            }),
+          }
+        );
 
-    localStorage.setItem("aicoUser", JSON.stringify(userData));
-    alert(mode === "login" ? "로그인되었습니다." : "회원가입이 완료되었습니다.");
-    navigate("/scenario");
+        if (!signupResponse.ok) {
+          throw new Error("회원가입 실패");
+        }
+
+        alert("회원가입이 완료되었습니다.");
+        setMode("login");
+        return;
+      }
+
+      // 로그인
+      const formData = new URLSearchParams();
+      formData.append("username", userId);
+      formData.append("password", password);
+
+      const loginResponse = await fetch(
+        "http://127.0.0.1:8000/auth/login",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: formData,
+        }
+      );
+
+      if (!loginResponse.ok) {
+        throw new Error("로그인 실패");
+      }
+
+      const data = await loginResponse.json();
+
+      // 토큰 저장
+      localStorage.setItem("token", data.access_token);
+
+      const userData = {
+        userId,
+        nickname: nickname || userId || "Guest User",
+        loginTime: new Date().toLocaleString(),
+      };
+
+      localStorage.setItem("aicoUser", JSON.stringify(userData));
+
+      alert("로그인되었습니다.");
+      navigate("/scenario");
+
+    } catch (error) {
+      console.error(error);
+      alert(error.message);
+    }
   };
 
   return (

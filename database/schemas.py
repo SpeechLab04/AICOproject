@@ -34,10 +34,10 @@ class RecordResponse(BaseModel):
     id: int
     user_nickname: str
     summary: Optional[str] = None
-    persona_questions: List[QuestionDetail] = Field(default_factory=list)
-    strength: Optional[str] = None
-    weakness: Optional[str] = None
-    improvement: Optional[str] = None
+    persona_questions: Any = Field(default_factory=list)
+    strength: Optional[Any] = None
+    weakness: Optional[Any] = None
+    improvement: Optional[Any] = None
     content_score: Optional[float] = None
     delivery_score: Optional[float] = None
     final_score: Optional[float] = None
