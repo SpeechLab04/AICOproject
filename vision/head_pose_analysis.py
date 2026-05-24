@@ -46,49 +46,93 @@ def classify_head_direction(avg_x_offset, avg_y_ratio):
 
 def calculate_head_score(ratios):
     front = ratios.get("front", 0)
-    left = ratios.get("left", 0)
+    left  = ratios.get("left",  0)
     right = ratios.get("right", 0)
-    up = ratios.get("up", 0)
-    down = ratios.get("down", 0)
+    up    = ratios.get("up",    0)
+    down  = ratios.get("down",  0)
 
-    lr = left + right
+    lr    = left + right
     score = 100
 
-    if front < 40:
-        score -= (40 - front) * 1.2
+    # 1. 정면 비율: 50% 미만 감점, 80% 초과도 감점 (정면만 보면 로봇같음)
+    if front < 50:
+        score -= (50 - front) * 1.5
+    elif front > 80:
+        score -= (front - 80) * 1.0
 
-    score -= down * 1.0
-    score -= up * 0.2
+    # 2. 아래 보기: 원고 의존 → 강한 감점
+    score -= down * 1.5
 
-    if 10 <= lr <= 30:
-        score += 3
-    elif lr > 40:
-        score -= (lr - 40) * 0.3
+    # 3. 위 보기: 약한 감점
+    score -= up * 0.5
+
+    # 4. 좌우 스캔: 15-35% 범위 보너스, 너무 없어도 감점
+    if 15 <= lr <= 35:
+        score += 5
+    elif lr < 10:
+        score -= (10 - lr) * 0.5   # 좌우 스캔 거의 없으면 감점
+    elif lr > 45:
+        score -= (lr - 45) * 0.5
+
+    # 5. 좌우 불균형 패널티: 한쪽이 다른 쪽의 3배 이상이면 감점
+    if lr > 5:
+        imbalance = max(left, right) / (min(left, right) + 1e-6)
+        if imbalance >= 3.0:
+            score -= min((imbalance - 3.0) * 3, 10)
 
     return max(0, min(100, round(score)))
 
 
 def get_head_feedback(ratios):
     front = ratios.get("front", 0)
-    left = ratios.get("left", 0)
+    left  = ratios.get("left",  0)
     right = ratios.get("right", 0)
-    down = ratios.get("down", 0)
-    up = ratios.get("up", 0)
+    down  = ratios.get("down",  0)
+    up    = ratios.get("up",    0)
 
     lr = left + right
 
-    if down >= 30:
-        return "아래를 보는 비율이 높아 청중과의 시선 연결이 약해 보일 수 있습니다."
+    if down >= 20:
+        return (
+            f"발표 중 아래를 {down}% 보셨어요. 청중 입장에서 자신감이 없어 보일 수 있어요. "
+            f"원고 대신 핵심 키워드만 메모해두고 카메라를 보며 말하는 연습을 해보세요. "
+            f"목표는 아래 보기 10% 이하예요."
+        )
+    elif front >= 65 and 15 <= lr <= 35:
+        return (
+            f"정면을 {front}% 유지하면서 좌우 청중도 {lr}% 고르게 바라봤어요. "
+            f"청중 전체와 소통하는 이상적인 발표 자세예요! 지금처럼 계속 유지해봐요."
+        )
     elif front >= 70 and down <= 10:
-        return "정면을 안정적으로 잘 유지한 발표 자세입니다."
-    elif front >= 50 and 10 <= lr <= 30:
-        return "정면을 잘 유지하면서도 청중을 고르게 바라보는 자연스러운 발표 자세입니다."
-    elif front < 35:
-        return "정면을 유지하는 비율이 낮아 다소 산만해 보일 수 있습니다."
-    elif up >= 20:
-        return "위쪽을 보는 비율이 다소 높아 보여 시선을 조금 더 안정적으로 유지하면 좋습니다."
+        return (
+            f"정면을 {front}% 안정적으로 유지했어요. "
+            f"다만 좌우 청중을 바라본 비율이 {lr}%로 조금 적어요. "
+            f"발표 중 왼쪽 → 정면 → 오른쪽 순으로 시선을 이동하면 더 많은 청중과 소통하는 느낌을 줄 수 있어요. "
+            f"목표는 좌우 합쳐서 15~35%예요."
+        )
+    elif front < 40:
+        return (
+            f"정면을 유지한 비율이 {front}%로 낮아 다소 산만해 보일 수 있어요. "
+            f"한 문장을 말하는 동안 카메라를 고정해서 바라보는 연습을 해보세요. "
+            f"목표는 정면 50% 이상이에요."
+        )
+    elif up >= 15:
+        return (
+            f"위를 바라본 비율이 {up}%로 다소 높아요. 내용을 기억하려고 위를 보는 경우가 많은데, "
+            f"발표 전 내용을 충분히 숙지하면 자연스럽게 카메라를 바라볼 수 있어요. "
+            f"목표는 위 보기 10% 이하예요."
+        )
+    elif lr < 10:
+        return (
+            f"정면을 {front}% 잘 유지했지만, 좌우 청중을 바라본 비율이 {lr}%로 적어요. "
+            f"발표 중 왼쪽 → 정면 → 오른쪽 순으로 시선을 이동하면 "
+            f"청중 전체가 집중하는 발표가 돼요. 목표는 좌우 합쳐서 15~35%예요."
+        )
     else:
-        return "전반적으로 안정적인 자세이지만, 정면 응시를 조금 더 의식하면 더 좋은 인상을 줄 수 있습니다."
+        return (
+            f"정면 {front}%, 좌우 {lr}%, 아래 {down}%로 전반적으로 안정적인 자세예요. "
+            f"좌우 청중을 조금 더 균형 있게 바라보면 더 좋은 인상을 줄 수 있어요."
+        )
 
 
 def format_time(seconds):
