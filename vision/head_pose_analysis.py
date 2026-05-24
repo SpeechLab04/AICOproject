@@ -27,9 +27,9 @@ def get_head_metrics(landmarks):
 
 
 def classify_head_direction(avg_x_offset, avg_y_ratio):
-    front_x_threshold = 0.18
-    up_threshold = 0.44
-    down_threshold = 0.60
+    front_x_threshold = 0.12
+    up_threshold = 0.42
+    down_threshold = 0.67
 
     if avg_x_offset > front_x_threshold:
         return "right"
@@ -54,31 +54,33 @@ def calculate_head_score(ratios):
     lr    = left + right
     score = 100
 
-    # 1. 정면 비율: 50% 미만 감점, 80% 초과도 감점 (정면만 보면 로봇같음)
-    if front < 50:
-        score -= (50 - front) * 1.5
+    # 1. 정면 비율: 50% 미만 감점 (단, 아래를 많이 볼 때는 front도 낮아지므로 중복 방지)
+    if front < 50 and down < 40:
+        score -= (50 - front) * 1.1
     elif front > 80:
         score -= (front - 80) * 1.0
 
-    # 2. 아래 보기: 원고 의존 → 강한 감점
-    score -= down * 1.5
+    # 2. 아래 보기: 원고 의존 → 강한 감점 (80% down → 약 20점)
+    score -= down * 1.0
 
     # 3. 위 보기: 약한 감점
     score -= up * 0.5
 
-    # 4. 좌우 스캔: 15-35% 범위 보너스, 너무 없어도 감점
-    if 15 <= lr <= 35:
+    # 4. 좌우 스캔: 15-40% 범위 보너스, 너무 없으면 감점 (너무 많아도 패널티 없음)
+    if 15 <= lr <= 40:
         score += 5
     elif lr < 10:
-        score -= (10 - lr) * 0.5   # 좌우 스캔 거의 없으면 감점
-    elif lr > 45:
-        score -= (lr - 45) * 0.5
+        score -= (10 - lr) * 0.5
 
-    # 5. 좌우 불균형 패널티: 한쪽이 다른 쪽의 3배 이상이면 감점
+    # 5. 좌우 불균형 패널티: 한쪽에 치우칠수록 강한 감점
     if lr > 5:
-        imbalance = max(left, right) / (min(left, right) + 1e-6)
-        if imbalance >= 3.0:
-            score -= min((imbalance - 3.0) * 3, 10)
+        balance_ratio = min(left, right) / (max(left, right) + 1e-6)
+        if balance_ratio < 0.1:    # 거의 한쪽만 (ex. 오른쪽만 22%, 왼쪽 0%)
+            score -= 18
+        elif balance_ratio < 0.25:  # 많이 치우침
+            score -= 10
+        elif balance_ratio < 0.4:   # 약간 치우침
+            score -= 4
 
     return max(0, min(100, round(score)))
 
@@ -92,45 +94,62 @@ def get_head_feedback(ratios):
 
     lr = left + right
 
+    # 한쪽 치우침 여부 판단
+    if lr > 5:
+        balance_ratio = min(left, right) / (max(left, right) + 1e-6)
+        one_sided = balance_ratio < 0.25
+    else:
+        one_sided = False
+
+    dominant = "오른쪽" if right > left else "왼쪽"
+    other    = "왼쪽"   if right > left else "오른쪽"
+
     if down >= 20:
         return (
-            f"발표 중 아래를 {down}% 보셨어요. 청중 입장에서 자신감이 없어 보일 수 있어요. "
-            f"원고 대신 핵심 키워드만 메모해두고 카메라를 보며 말하는 연습을 해보세요. "
+            f"발표 중 아래를 {int(down)}% 보셨어요. 청중 입장에서 자신감이 없어 보일 수 있어요. "
+            f"원고 대신 핵심 키워드만 메모해두고 청중을 보며 말하는 연습을 해보세요. "
             f"목표는 아래 보기 10% 이하예요."
+        )
+    elif one_sided and lr > 10:
+        return (
+            f"{dominant} 청중을 주로 바라봤어요({int(max(left, right))}%). "
+            f"{other} 청중도 함께 바라봐야 발표가 더 균형 있어 보여요. "
+            f"왼쪽 → 정면 → 오른쪽 순으로 시선을 이동하는 연습을 해보세요. "
+            f"목표는 좌우를 비슷한 비율로 균형 있게 바라보는 거예요."
         )
     elif front >= 65 and 15 <= lr <= 35:
         return (
-            f"정면을 {front}% 유지하면서 좌우 청중도 {lr}% 고르게 바라봤어요. "
+            f"정면을 {int(front)}% 유지하면서 좌우 청중도 {int(lr)}% 고르게 바라봤어요. "
             f"청중 전체와 소통하는 이상적인 발표 자세예요! 지금처럼 계속 유지해봐요."
         )
     elif front >= 70 and down <= 10:
         return (
-            f"정면을 {front}% 안정적으로 유지했어요. "
-            f"다만 좌우 청중을 바라본 비율이 {lr}%로 조금 적어요. "
+            f"정면을 {int(front)}% 안정적으로 유지했어요. "
+            f"다만 좌우 청중을 바라본 비율이 {int(lr)}%로 조금 적어요. "
             f"발표 중 왼쪽 → 정면 → 오른쪽 순으로 시선을 이동하면 더 많은 청중과 소통하는 느낌을 줄 수 있어요. "
             f"목표는 좌우 합쳐서 15~35%예요."
         )
     elif front < 40:
         return (
-            f"정면을 유지한 비율이 {front}%로 낮아 다소 산만해 보일 수 있어요. "
+            f"정면을 유지한 비율이 {int(front)}%로 낮아 다소 산만해 보일 수 있어요. "
             f"한 문장을 말하는 동안 카메라를 고정해서 바라보는 연습을 해보세요. "
             f"목표는 정면 50% 이상이에요."
         )
     elif up >= 15:
         return (
-            f"위를 바라본 비율이 {up}%로 다소 높아요. 내용을 기억하려고 위를 보는 경우가 많은데, "
+            f"위를 바라본 비율이 {int(up)}%로 다소 높아요. 내용을 기억하려고 위를 보는 경우가 많은데, "
             f"발표 전 내용을 충분히 숙지하면 자연스럽게 카메라를 바라볼 수 있어요. "
             f"목표는 위 보기 10% 이하예요."
         )
     elif lr < 10:
         return (
-            f"정면을 {front}% 잘 유지했지만, 좌우 청중을 바라본 비율이 {lr}%로 적어요. "
+            f"정면을 {int(front)}% 잘 유지했지만, 좌우 청중을 바라본 비율이 {int(lr)}%로 적어요. "
             f"발표 중 왼쪽 → 정면 → 오른쪽 순으로 시선을 이동하면 "
             f"청중 전체가 집중하는 발표가 돼요. 목표는 좌우 합쳐서 15~35%예요."
         )
     else:
         return (
-            f"정면 {front}%, 좌우 {lr}%, 아래 {down}%로 전반적으로 안정적인 자세예요. "
+            f"정면 {int(front)}%, 좌우 {int(lr)}%, 아래 {int(down)}%로 전반적으로 안정적인 자세예요. "
             f"좌우 청중을 조금 더 균형 있게 바라보면 더 좋은 인상을 줄 수 있어요."
         )
 

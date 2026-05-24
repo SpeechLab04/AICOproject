@@ -135,18 +135,28 @@ def make_timeline(video_path, head_score, emotion_score, gaze_score, gesture_sco
 def calculate_delivery_score(head_score, emotion_score, gaze_score, gesture_score=None):
     if gesture_score is None:
         score = (
-            head_score    * 0.45
+            head_score    * 0.50
             + emotion_score * 0.30
-            + gaze_score    * 0.25
+            + gaze_score    * 0.20
         )
     else:
         score = (
-            head_score    * 0.40
+            head_score    * 0.45
             + emotion_score * 0.25
-            + gaze_score    * 0.20
+            + gaze_score    * 0.15
             + gesture_score * 0.15
         )
     return round(score)
+
+
+def _eun_neun(text):
+    """마지막 글자 받침 여부에 따라 '은' 또는 '는' 반환"""
+    if not text:
+        return "은"
+    code = ord(text[-1]) - 0xAC00
+    if code < 0 or code > 11171:
+        return "은"
+    return "은" if (code % 28) != 0 else "는"
 
 
 def get_delivery_feedback(delivery_score, head_score=None, emotion_score=None, gaze_score=None, gesture_score=None):
@@ -170,11 +180,11 @@ def get_delivery_feedback(delivery_score, head_score=None, emotion_score=None, g
             "정말 잘하고 있어요, 계속 이대로 연습해봐요!"
         )
     elif delivery_score >= 70:
-        base  = f"{good_str}는 매우 안정적이에요!" if good_str else "전반적으로 무난한 발표 태도예요!"
+        base  = f"{good_str}{_eun_neun(good_str)} 매우 안정적이에요!" if good_str else "전반적으로 무난한 발표 태도예요!"
         extra = f" {weak_str}만 조금 더 신경 써주면 훨씬 좋은 발표가 될 것 같아요. 조금만 더 연습해봐요!" if weak_str else " 각 항목 피드백을 참고해서 조금씩 다듬어 나가봐요!"
         return base + extra
     elif delivery_score >= 50:
-        base  = f"{good_str}는 잘 유지되고 있어요." if good_str else "조금씩 나아지고 있어요."
+        base  = f"{good_str}{_eun_neun(good_str)} 잘 유지되고 있어요." if good_str else "조금씩 나아지고 있어요."
         extra = f" {weak_str} 부분을 집중적으로 연습하면 점수가 크게 올라갈 거예요. 포기하지 말고 다시 도전해봐요!" if weak_str else " 각 항목 피드백을 참고해서 꾸준히 연습해봐요!"
         return base + extra
     else:
@@ -248,13 +258,18 @@ def analyze_vision(video_path, situation="academic", rotate_mode="auto"):
         }
 
     fps            = cap.get(cv2.CAP_PROP_FPS)
-    frame_interval = max(1, int(fps))
+    frame_interval = max(1, int(fps // 2))  # 2fps 샘플링 (1fps → 놓침 방지)
 
     # ── 카메라 가이드 누산 ──
     guide_face_ratios = []
     guide_hand_count  = 0
     guide_total       = 0
     guide_result      = None
+    guide_y_ratios    = []   # Phase 1에서 수집한 y_ratio 기준값
+
+    # ── 동적 임계값 (Phase 1 후 계산) ──
+    dyn_down_thresh = None
+    dyn_up_thresh   = None
 
     # ── 고개 방향 누산 ──
     head_x_buf  = deque(maxlen=15)
@@ -315,6 +330,10 @@ def analyze_vision(video_path, situation="academic", rotate_mode="auto"):
                 if face_res.multi_face_landmarks:
                     lm = face_res.multi_face_landmarks[0].landmark
                     guide_face_ratios.append(abs(lm[454].x - lm[234].x))
+                    # y_ratio 기준값 수집 (고개 숙임 동적 임계값 계산용)
+                    _, y_r = get_head_metrics(lm)
+                    if y_r is not None:
+                        guide_y_ratios.append(y_r)
                 if hand_res.multi_hand_landmarks:
                     guide_hand_count += 1
 
@@ -324,6 +343,14 @@ def analyze_vision(video_path, situation="academic", rotate_mode="auto"):
                     avg_ratio = sum(guide_face_ratios) / len(guide_face_ratios) if guide_face_ratios else 0
                     print(f"[디버깅] 감지된 얼굴 프레임 수: {len(guide_face_ratios)} / 60")
                     print(f"[디버깅] 평균 face_ratio: {round(avg_ratio, 4)} (기준: {FACE_TOO_FAR} ~ {FACE_TOO_CLOSE})")
+                    # 동적 임계값 계산
+                    if guide_y_ratios:
+                        # Phase 1 최댓값 기반 → 처음부터 고개 숙이고 찍어도 올바른 기준 유지
+                        # 최솟값 0.60 보장 → 매우 낮은 카메라 등 극단적 상황 대비
+                        baseline_y      = max(max(guide_y_ratios), 0.60)
+                        dyn_down_thresh = baseline_y - 0.05   # 고개 숙임 = y_ratio 감소
+                        dyn_up_thresh   = baseline_y + 0.07   # 고개 젖힘 = y_ratio 증가
+                        print(f"[디버깅] baseline_y={round(baseline_y,3)}, down_thresh={round(dyn_down_thresh,3)}, up_thresh={round(dyn_up_thresh,3)}")
                     guide_result = _compute_guide(guide_face_ratios, guide_hand_count, guide_total)
                     print(f"거리 판정: {guide_result['distance']} / 안내: {guide_result['suggestion']}")
                     if not guide_result["is_valid"]:
@@ -351,9 +378,24 @@ def analyze_vision(video_path, situation="academic", rotate_mode="auto"):
                 if x_offset is not None:
                     head_x_buf.append(x_offset)
                     head_y_buf.append(y_ratio)
-                    avg_x     = sum(head_x_buf) / len(head_x_buf)
-                    avg_y     = sum(head_y_buf) / len(head_y_buf)
-                    direction = classify_head_direction(avg_x, avg_y)
+                    avg_x = sum(head_x_buf) / len(head_x_buf)
+                    avg_y = sum(head_y_buf) / len(head_y_buf)
+                    # 동적 임계값 사용 (Phase 1 기준값 기반)
+                    if dyn_down_thresh is not None:
+                        if avg_x > 0.12:
+                            direction = "right"
+                        elif avg_x < -0.12:
+                            direction = "left"
+                        elif avg_y < dyn_down_thresh:
+                            direction = "down"
+                        elif avg_y > dyn_up_thresh:
+                            direction = "up"
+                        else:
+                            direction = "front"
+                    else:
+                        direction = classify_head_direction(avg_x, avg_y)
+                    if head_total < 5:
+                        print(f"[디버깅] head frame {head_total+1}: y_ratio={round(y_ratio,3)}, avg_y={round(avg_y,3)}, dir={direction}")
                     head_counts[direction] += 1
                     head_total += 1
 
