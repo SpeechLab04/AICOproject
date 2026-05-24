@@ -102,19 +102,40 @@ def classify_gaze(avg_offset):
 
 
 def calculate_gaze_score(gaze_ratio):
+    """
+    교실 대면 발표 기준:
+      - 좌·중앙·우 모두 청중이므로 어디를 봐도 기본적으로 좋음
+      - 좌우를 골고루 스캔할수록 보너스
+      - 한쪽만 치우치면 패널티
+    """
     center = gaze_ratio.get("center", 0)
-    left = gaze_ratio.get("left", 0)
-    right = gaze_ratio.get("right", 0)
+    left   = gaze_ratio.get("left",   0)
+    right  = gaze_ratio.get("right",  0)
+    lr     = left + right
 
-    lr = left + right
+    score = 50  # 기본 베이스
 
-    score = 40
-    score += center * 0.45
+    # 1. 좌우 스캔 비율 보너스 (20~60%가 이상적)
+    if 20 <= lr <= 60:
+        score += 20
+    elif 10 <= lr < 20:
+        score += 10
+    elif lr < 10:
+        score += 2   # 정면 위주도 나쁘진 않지만 소소한 가산만
 
-    if 10 <= lr <= 25:
-        score += 5
-    elif lr > 40:
-        score -= (lr - 40) * 0.4
+    # 2. 좌우 균형 보너스
+    if lr > 5:
+        balance = min(left, right) / (max(left, right) + 1e-6)
+        if balance >= 0.4:
+            score += 15
+        elif balance >= 0.2:
+            score += 8
+
+    # 3. 극단적 한쪽 치우침 패널티
+    if lr > 5:
+        imbalance = max(left, right) / (min(left, right) + 1e-6)
+        if imbalance >= 4.0:
+            score -= min((imbalance - 4.0) * 4, 15)
 
     return max(0, min(100, round(score)))
 
@@ -123,36 +144,40 @@ def get_gaze_feedback(gaze_ratio):
     center = gaze_ratio.get("center", 0)
     left   = gaze_ratio.get("left",   0)
     right  = gaze_ratio.get("right",  0)
+    lr     = left + right
 
-    lr = left + right
+    if lr > 5:
+        imbalance = max(left, right) / (min(left, right) + 1e-6)
+    else:
+        imbalance = 1.0
 
-    if center >= 75 and 5 <= lr <= 25:
+    dominant = "오른쪽" if right > left else "왼쪽"
+    other    = "왼쪽"   if right > left else "오른쪽"
+
+    if 20 <= lr <= 60 and imbalance < 3:
         return (
-            f"카메라를 {center}% 바라보면서 좌우로 {lr}% 자연스럽게 시선을 분산했어요. "
-            f"이상적인 시선 처리예요! 지금처럼 유지해봐요."
+            f"눈동자가 왼쪽·정면·오른쪽으로 골고루 움직였어요. "
+            f"좌우 {int(lr)}%, 정면 {int(center)}%로 청중 전체와 눈을 맞추는 이상적인 시선이에요! "
+            f"지금처럼 유지해봐요."
         )
-    elif center >= 70:
+    elif imbalance >= 3 and lr > 10:
         return (
-            f"카메라를 {center}% 바라봤어요. 안정적이에요. "
-            f"팁: 카메라 렌즈 바로 위에 작은 스티커를 붙여두면 시선을 더 자연스럽게 고정할 수 있어요."
+            f"눈동자가 {dominant} 방향으로 치우쳐 있었어요({int(max(left, right))}%). "
+            f"{other} 청중과도 눈을 맞추는 연습을 해보세요. "
+            f"한 문장 말할 때마다 눈동자를 왼쪽·정면·오른쪽으로 번갈아 이동하면 자연스러워요. "
+            f"목표는 좌우 눈 맞춤 각 10% 이상이에요."
         )
-    elif lr > 40:
+    elif lr < 10:
         return (
-            f"좌우 시선 이동이 {lr}%로 다소 많아 집중력이 분산되어 보일 수 있어요. "
-            f"한 문장을 말하는 동안 카메라를 3~5초 바라보는 연습을 해보세요. "
-            f"목표는 카메라 응시 70% 이상, 좌우 이동 25% 이하예요."
-        )
-    elif center < 50:
-        return (
-            f"카메라를 바라본 비율이 {center}%로 낮아요. "
-            f"카메라 렌즈를 청중의 눈이라고 생각하고 바라보세요. "
-            f"카메라 위에 스티커를 붙여두면 시선 고정에 도움이 돼요. 목표는 70% 이상이에요."
+            f"눈동자가 정면에 고정된 비율이 {int(center)}%예요. "
+            f"왼쪽·오른쪽 청중과도 눈을 맞추면 더 많은 청중이 집중하게 돼요. "
+            f"발표 중 눈동자를 자연스럽게 왼쪽·정면·오른쪽으로 옮겨보세요. "
+            f"목표는 좌우 눈 맞춤 합쳐서 20% 이상이에요."
         )
     else:
         return (
-            f"카메라를 {center}% 바라봤어요. 조금 더 늘리면 좋겠어요. "
-            f"3~5초 카메라를 바라본 뒤 자연스럽게 다른 곳으로 이동하는 패턴을 반복해보세요. "
-            f"목표는 70% 이상이에요."
+            f"좌우 눈 맞춤이 {int(lr)}%예요. 조금 더 균형 있게 양쪽 청중과 눈을 맞추면 좋아요. "
+            f"한 문장씩 말할 때마다 눈동자를 왼쪽·정면·오른쪽으로 번갈아 이동하는 패턴을 연습해보세요."
         )
 
 
