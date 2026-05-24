@@ -354,7 +354,7 @@ def run_detailed_analysis(
         }
 
     finally:
-
+        # ✅ 중요: 백그라운드 정밀 분석 로직이 안전하게 끝나는 이 시점에만 오디오 파일을 삭제합니다.
         if os.path.exists(audio_path):
             os.remove(audio_path)
 
@@ -443,7 +443,8 @@ def process_voice_analysis(
     except Exception as e:
 
         print("process_voice_analysis error:", e)
-
+        
+        # 여기서 에러가 나서 탈출하는 경우에만 예외적으로 오디오를 삭제해 줍니다.
         if os.path.exists(audio_temp_path):
             os.remove(audio_temp_path)
 
@@ -453,7 +454,8 @@ def process_voice_analysis(
         }
 
     finally:
-
+        # ⚠️ 기존에 있던 audio_temp_path 삭제 로직을 완벽하게 제거했습니다!
+        # 비디오 파일만 메인 응답 직전에 바로 파기합니다.
         if os.path.exists(video_path):
             os.remove(video_path)
 
