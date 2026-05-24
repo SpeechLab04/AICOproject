@@ -135,18 +135,18 @@ def classify_emotion(face_landmarks):
     #    핵심: 입꼬리 상승 + 입 가로폭 + 약간의 입 변화
     # ---------------------------------------
     big_smile = (
-        mouth_width > 0.33 and
-        corner_lift > 0.010 and
-        mouth_height > 0.018
+        mouth_width > 0.32 and
+        corner_lift > 0.008 and
+        mouth_height > 0.012
     )
 
     soft_smile = (
-        mouth_width > 0.30 and
-        corner_lift > 0.005 and
-        mouth_height > 0.008
+        mouth_width > 0.28 and
+        corner_lift > 0.003 and
+        mouth_height > 0.004
     )
 
-    is_smile = (big_smile or soft_smile) and eye_open_avg > 0.010
+    is_smile = (big_smile or soft_smile) and eye_open_avg > 0.008
 
     if is_smile:
         return "positive", metrics
@@ -156,28 +156,42 @@ def classify_emotion(face_landmarks):
 
 def calculate_emotion_score(emotion_ratio):
     positive = emotion_ratio.get("positive", 0)
-    neutral = emotion_ratio.get("neutral", 0)
+    neutral  = emotion_ratio.get("neutral",  0)
 
-    score = 50
-    score += positive * 0.6   # 웃음 중요
-    score += neutral * 0.2    # 무표정도 기본점
+    score = 40                  # 기본 베이스
+    score += positive * 0.6    # 미소 비율이 핵심 (최대 +60)
+    score += neutral  * 0.1    # 무표정도 약간 인정 (최대 +10)
 
     return max(0, min(100, round(score)))
 
 def get_emotion_feedback(score, ratio):
     positive = ratio.get("positive", 0)
+    neutral  = ratio.get("neutral",  0)
 
     if score >= 85:
-        return "자연스럽고 밝은 표정으로 발표에 좋은 인상을 주고 있습니다."
-    
+        return (
+            f"발표 중 밝은 표정을 {positive}% 유지했어요. "
+            f"미소는 청중에게 친근감과 신뢰감을 주는 가장 강력한 도구예요. "
+            f"지금처럼 계속 유지해봐요!"
+        )
     elif score >= 70:
-        return "전반적으로 안정적인 표정이지만, 조금 더 미소를 유지하면 더 좋습니다."
-    
+        return (
+            f"밝은 표정이 {positive}% 나왔어요. 조금 더 늘리면 좋겠어요. "
+            f"중요한 내용을 말하기 직전에 살짝 미소를 지으면 청중의 집중도를 높일 수 있어요. "
+            f"목표는 30% 이상이에요."
+        )
     elif score >= 50:
-        return "표정 변화가 다소 부족하여 다소 무표정하게 보일 수 있습니다."
-    
+        return (
+            f"밝은 표정이 {positive}%로 다소 적어요. 무표정하게 보일 수 있어요. "
+            f"발표 전 거울을 보며 미소 짓는 연습을 해보세요. "
+            f"입꼬리를 살짝 올리는 것만으로도 인상이 크게 달라져요. 목표는 30% 이상이에요."
+        )
     else:
-        return "표정이 굳어 보일 수 있어, 의식적으로 미소를 유지하는 연습이 필요합니다."
+        return (
+            f"밝은 표정이 {positive}%로 매우 적어요. 청중에게 긴장된 인상을 줄 수 있어요. "
+            f"발표 전 '이' 발음을 5초간 유지하거나, 볼을 부풀렸다 터트리는 표정 스트레칭을 해보세요. "
+            f"얼굴 근육이 풀리면 자연스러운 표정이 나와요."
+        )
 
 
 def analyze_emotion(
