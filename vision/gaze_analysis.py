@@ -121,19 +121,39 @@ def calculate_gaze_score(gaze_ratio):
 
 def get_gaze_feedback(gaze_ratio):
     center = gaze_ratio.get("center", 0)
-    left = gaze_ratio.get("left", 0)
-    right = gaze_ratio.get("right", 0)
+    left   = gaze_ratio.get("left",   0)
+    right  = gaze_ratio.get("right",  0)
 
     lr = left + right
 
-    if center >= 70:
-        return "정면 시선을 비교적 안정적으로 유지하고 있습니다."
-    elif 10 <= lr <= 30 and center >= 50:
-        return "정면을 유지하면서도 좌우로 자연스럽게 시선을 분산하고 있습니다."
+    if center >= 75 and 5 <= lr <= 25:
+        return (
+            f"카메라를 {center}% 바라보면서 좌우로 {lr}% 자연스럽게 시선을 분산했어요. "
+            f"이상적인 시선 처리예요! 지금처럼 유지해봐요."
+        )
+    elif center >= 70:
+        return (
+            f"카메라를 {center}% 바라봤어요. 안정적이에요. "
+            f"팁: 카메라 렌즈 바로 위에 작은 스티커를 붙여두면 시선을 더 자연스럽게 고정할 수 있어요."
+        )
     elif lr > 40:
-        return "좌우 시선 이동이 다소 많아 시선이 산만해 보일 수 있습니다."
+        return (
+            f"좌우 시선 이동이 {lr}%로 다소 많아 집중력이 분산되어 보일 수 있어요. "
+            f"한 문장을 말하는 동안 카메라를 3~5초 바라보는 연습을 해보세요. "
+            f"목표는 카메라 응시 70% 이상, 좌우 이동 25% 이하예요."
+        )
+    elif center < 50:
+        return (
+            f"카메라를 바라본 비율이 {center}%로 낮아요. "
+            f"카메라 렌즈를 청중의 눈이라고 생각하고 바라보세요. "
+            f"카메라 위에 스티커를 붙여두면 시선 고정에 도움이 돼요. 목표는 70% 이상이에요."
+        )
     else:
-        return "전반적으로 무난하지만 시선을 조금 더 안정적으로 유지하면 좋습니다."
+        return (
+            f"카메라를 {center}% 바라봤어요. 조금 더 늘리면 좋겠어요. "
+            f"3~5초 카메라를 바라본 뒤 자연스럽게 다른 곳으로 이동하는 패턴을 반복해보세요. "
+            f"목표는 70% 이상이에요."
+        )
 
 
 def format_time(seconds):
