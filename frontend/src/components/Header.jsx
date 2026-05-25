@@ -128,6 +128,11 @@ function Header({ showBack = false }) {
                 onClick={() => navigate("/mypage")}
               />
 
+              <MenuItem
+                text="발표 기록"
+                onClick={() => navigate("/records")}
+              />
+
               <MenuItem text="로그아웃" onClick={handleLogout} />
             </>
           ) : (

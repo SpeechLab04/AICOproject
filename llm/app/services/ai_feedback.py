@@ -79,6 +79,7 @@ def generate_system_prompt(selected_personas: List[str]):
     - strength: 내용 면에서 우수한 점 3가지를 '문자열 리스트' 형태로 작성하세요.
     - weakness: 논리적 허점이나 보완점 3가지를 '문자열 리스트' 형태로 작성하세요.
     - improvement: 다음 발표에서 즉시 개선 가능한 개선 조언 3가지를 '문자열 리스트' 형태로 작성하세요.
+- general_questions: 발표 내용을 더 발전시키기 위한 심층 질문 3가지를 생성한다. 발표자가 스스로 보완하고 성장할 수 있도록 내용의 논리성·근거·확장 가능성에 초점을 맞춘다.
 - persona_questions: 선택된 심사위원마다 성향을 재현한 질문을 1개씩 생성한다.
 - content_score: 위 루브릭에 따른 최종 평균 점수를 산출한다.
 """
@@ -91,7 +92,11 @@ JSON_SCHEMA = {
         "type": "object",
         "properties": {
             "summary": {"type": "string"},
-            "persona_questions": { # 스키마에 따라 expected_questions로 바꿀 수도 있음
+            "general_questions": {
+                "type": "array",
+                "items": {"type": "string"}
+            },
+            "persona_questions": {
                 "type": "array",
                 "items": {
                     "type": "object",
@@ -117,7 +122,7 @@ JSON_SCHEMA = {
             "delivery_score": {"type": "number"}, # 스키마에 있는 필드 추가
             "final_score": {"type": "number"}    # 스키마에 있는 필드 추가
         },
-        "required": ["summary", "persona_questions", "content_feedback", "content_score", "delivery_score", "final_score"],
+        "required": ["summary", "general_questions", "persona_questions", "content_feedback", "content_score", "delivery_score", "final_score"],
         "additionalProperties": False
     }
 }

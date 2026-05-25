@@ -10,8 +10,25 @@ function LoginPage() {
   const [password, setPassword] = useState("");
   const [nickname, setNickname] = useState("");
 
+  const pwChecks = {
+    length: password.length >= 8,
+    letter: /[A-Za-z]/.test(password),
+    number: /\d/.test(password),
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (mode === "signup") {
+      if (!userId.includes("@")) {
+        alert("올바른 이메일 형식을 입력해주세요. (@ 포함)");
+        return;
+      }
+      if (!pwChecks.length || !pwChecks.letter || !pwChecks.number) {
+        alert("비밀번호 조건을 모두 충족해야 합니다.");
+        return;
+      }
+    }
 
     try {
       // 회원가입
@@ -31,7 +48,7 @@ function LoginPage() {
         );
 
         if (!signupResponse.ok) {
-          throw new Error("회원가입 실패");
+          throw new Error("회원가입 실패. 이미 사용 중인 이메일일 수 있습니다.");
         }
 
         alert("회원가입이 완료되었습니다.");
@@ -56,7 +73,10 @@ function LoginPage() {
       );
 
       if (!loginResponse.ok) {
-        throw new Error("로그인 실패");
+        if (loginResponse.status === 423) {
+          throw new Error("로그인 5회 실패로 10분간 잠금되었습니다. 잠시 후 다시 시도해주세요.");
+        }
+        throw new Error("이메일 또는 비밀번호가 올바르지 않습니다.");
       }
 
       const data = await loginResponse.json();
@@ -169,10 +189,16 @@ function LoginPage() {
           <input
             value={userId}
             onChange={(e) => setUserId(e.target.value)}
-            placeholder="아이디"
+            placeholder={mode === "signup" ? "이메일 (예: example@email.com)" : "아이디"}
             required
             style={inputStyle}
           />
+
+          {mode === "signup" && (
+            <p style={{ fontSize: "12px", color: "#7AA5A0", marginTop: "-8px", marginBottom: "14px", paddingLeft: "4px" }}>
+              @ 를 포함한 이메일 형식으로 입력해주세요.
+            </p>
+          )}
 
           <input
             value={password}
@@ -182,6 +208,20 @@ function LoginPage() {
             required
             style={inputStyle}
           />
+
+          {mode === "signup" && (
+            <div style={{ marginTop: "-8px", marginBottom: "14px", paddingLeft: "4px", display: "flex", flexDirection: "column", gap: "4px" }}>
+              {[
+                { ok: pwChecks.length, text: "8자 이상" },
+                { ok: pwChecks.letter, text: "영문자 포함" },
+                { ok: pwChecks.number, text: "숫자 포함" },
+              ].map(({ ok, text }) => (
+                <span key={text} style={{ fontSize: "12px", color: ok ? "#6BB5A6" : "#AABFBB", display: "flex", alignItems: "center", gap: "5px" }}>
+                  <span>{ok ? "✓" : "○"}</span> {text}
+                </span>
+              ))}
+            </div>
+          )}
 
           <button
             type="submit"

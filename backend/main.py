@@ -209,6 +209,8 @@ async def upload_video(
                 "score": content_score,
                 "summary": ai_result.get("summary", ""),
                 "full_script": script_text,
+                "general_questions": ai_result.get("general_questions", []),
+                "persona_questions": ai_result.get("persona_questions", []),
                 "questions": ai_result.get("persona_questions", []),
                 "content_feedback": content_feedback,
                 "content_score": content_score,

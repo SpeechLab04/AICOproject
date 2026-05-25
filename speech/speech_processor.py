@@ -226,6 +226,7 @@ def run_detailed_analysis(
 
         # segment 기반 필러 검출
         potential_fillers = []
+        potential_filler_occurrences = []
 
         for seg in segments:
 
@@ -243,11 +244,22 @@ def run_detailed_analysis(
 
                 if re.search(pattern, cleaned_seg_text):
                     potential_fillers.append(filler)
+                    potential_filler_occurrences.append({
+                        "word": filler,
+                        "at": round(seg.get("start", 0), 1),
+                        "text": seg_text.strip()
+                    })
 
         verified_fillers = verify_fillers_with_llm(
             full_text,
             potential_fillers
         )
+
+        verified_set = set(verified_fillers)
+        filler_occurrences = [
+            occ for occ in potential_filler_occurrences
+            if occ["word"] in verified_set
+        ]
 
         # 반복어 탐지
         filler_group = f"(?:{'|'.join(filler_patterns)})"
@@ -331,6 +343,7 @@ def run_detailed_analysis(
             "speech_habits": {
                 "filler_count": len(verified_fillers),
                 "filler_list": list(set(verified_fillers)),
+                "filler_occurrences": filler_occurrences,
                 "echo_count": len(echo_matches),
                 "duplicate_details": echo_matches,
                 "modification_count": len(mod_found),
@@ -341,7 +354,9 @@ def run_detailed_analysis(
                 "pause_count": len(pauses),
                 "pause_details": pauses,
                 "monotone_sections": monotone_timeline
-            }
+            },
+
+            "segments": segments
         }
 
     except Exception as e:
@@ -437,7 +452,8 @@ def process_voice_analysis(
             "success": True,
             "file_id": file_id,
             "full_script": full_text,
-            "message": "스크립트 추출 완료. 세부 분석 진행 중."
+            "message": "스크립트 추출 완료. 세부 분석 진행 중.",
+            "duration_sec": round(duration_sec, 1)
         }
 
     except Exception as e:
