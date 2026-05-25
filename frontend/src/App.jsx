@@ -8,6 +8,7 @@ import UploadPage from "./pages/UploadPage";
 import LivePage from "./pages/LivePage";
 import DashboardPage from "./pages/DashboardPage";
 import MyPage from "./pages/MyPage";
+import RecordsPage from "./pages/RecordsPage";
 import PracticeModePage from "./pages/PracticeModePage";
 import ScenarioDetailPage from "./pages/ScenarioDetailPage";
 
@@ -23,6 +24,7 @@ function App() {
         <Route path="/live" element={<LivePage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/mypage" element={<MyPage />} />
+        <Route path="/records" element={<RecordsPage />} />
         <Route path="/practice-mode" element={<PracticeModePage />} />
         <Route path="/scenario-detail" element={<ScenarioDetailPage />} />
       </Routes>

@@ -21,3 +21,9 @@ button {
 a {
   text-decoration: none;
 }
+
+@media (max-width: 768px) {
+  #root {
+    zoom: 0.88;
+  }
+}
