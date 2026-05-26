@@ -27,6 +27,7 @@ function App() {
         <Route path="/records" element={<RecordsPage />} />
         <Route path="/practice-mode" element={<PracticeModePage />} />
         <Route path="/scenario-detail" element={<ScenarioDetailPage />} />
+        
       </Routes>
     </BrowserRouter>
   );
