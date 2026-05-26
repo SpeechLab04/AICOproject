@@ -183,15 +183,14 @@ async def get_ai_presentation_feedback(script: str, selected_personas: List[str]
         result = json.loads(content)
 
         # 💡 [2차 후처리 필터링]: AI가 요약(summary)이나 피드백에 '사담', '잡담', '테스트' 등을 언급했다면 점수를 강제로 0점 처리
+        # 파이썬 코드 단에서 content_score 자체를 0.0으로 완벽하게 초기화하여 리턴합니다.
         trigger_words = ["사담", "잡담", "테스트 음성", "주제가 전혀 없음", "주제가 없습니다", "발표 주제가 없음"]
         is_chatting = any(word in result.get("summary", "") for word in trigger_words) or \
-                      any(word in str(result.get("content_feedback", {})) for word in trigger_words)
+              any(word in str(result.get("content_feedback", {})) for word in trigger_words)
 
         if is_chatting:
-            result["content_score"] = 0.0
-            result["delivery_score"] = 0.0
-            result["final_score"] = 0.0
-            # 질문도 "없음"으로 통일하거나 깔끔하게 비워줍니다.
+            result["content_score"] = 0.0  # 👈 백엔드 규격(float)에 맞게 0.0으로 강제 초기화
+            result["final_score"] = 0.0    # 👈 최종 총점도 0.0으로 강제 초기화
             result["persona_questions"] = [
                 {"persona_type": q["persona_type"], "question": "학술적 발표가 아니므로 질문을 생성하지 않습니다."}
                 for q in result.get("persona_questions", [])
