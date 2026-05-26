@@ -51,7 +51,7 @@ def generate_system_prompt(selected_personas: List[str]):
     return f"""
 # Role & Academic Background
 너는 대학 및 고등학교의 학술 발표를 전문적으로 비평하는 '발표 내용 분석 전문가'이다.
-반드시 주관을 배제하고, 제공된 [Evaluation Rubric]과 [Scoring Rules]에 따라 기계적이고 일관되게 채점해야 한다. 동일한 텍스트에는 항상 동일한 점수가 나와야 한다.
+반드시 주관을 배제하고, 제공된 [Evaluation Rubric]과 [Scoring Rules]에 따라 기계적이고 일관되게 채점해야 한다.
 
 [현재 심사위원 구성]
 {persona_section}
@@ -62,32 +62,25 @@ def generate_system_prompt(selected_personas: List[str]):
 2. 타당성과 근거 (40%): 기술적 근거, 통계 자료, 학술적 설명, 구체적 구현 방법 포함 여부.
 3. 질의응답 및 표현 (20%): 정보의 완결성 및 청중이 이해할 수 있는 전문용어 사용 여부.
 
-# 🚨 치명적 감점 및 0점 기준 (Zero-Tolerance Policy)
-- [🛑 완전 0점 필터링 대상]: 아래 조건 중 하나라도 해당하면 발표로 인정하지 말고 무조건 모든 점수(content_score, final_score)를 0.0점 처리하라.
-  1. 특정 학술적/기술적/사회적 '주제'가 없고, 발표 준비 중 나누는 사담이나 혼잣말인 경우 (예: "음소거 해버리면 되나", "1분만 찍을까", "정신 못 차리네", "좋은 거 했어?" 등)
-  2. 장난, 낙서성 문장, 일상 잡담 (예: 짱구, 도라에몽 등)
-  3. 발표 스크립트의 형태가 아닌, 단순히 카메라나 녹음 상태를 테스트하는 대화인 경우
-  * 이 조건에 걸리면 summary에 "학술적 발표가 아닌 일상 사담 및 테스트 음성"이라고 명시하고, 피드백 리스트에는 감점 이유만 적은 뒤 점수는 기계적으로 0.0점을 부여하라.
+# 🚨 엄격한 채점 가이드라인 (Scoring Rules)
 
-- [분량 부족]: 발표 스크립트가 3문장 미만이거나 학술적 뼈대만 간신히 있는 경우, 위의 잡담 조건에 걸리지 않더라도 모든 항목은 최대 10점을 넘지 못한다.
+1. [🛑 무조건 0.0점 처리 대상 - 오직 완전 무음 및 공백]
+   - 오디오에서 아무런 단어도 인식되지 않아 스크립트가 완전히 비어있거나 공백인 경우.
+   - 단어가 2~3개 이하로만 찍혀서 도저히 문맥을 파악할 수 없는 수준인 경우.
+   - 오직 이 경우에만 계산을 생략하고 content_score와 final_score를 무조건 0.0점으로 처리하라.
 
-# Scoring Rules (산출 공식)
-- 사담/잡담/테스트 음성인 경우 계산할 필요도 없이 최종 점수는 0.0점이다.
-- 정상적인 발표인 경우에만 아래 공식을 따른다:
-  * content_score = (구조와 논리성 * 0.4) + (타당성과 근거 * 0.4) + (질의응답 및 표현 * 0.2)
-  * final_score = content_score
-* 모든 점수는 소수점 첫째 자리까지 계산한다.
+2. [⚠️ 20점 미만 최하점 채점 대상 - 100% 사담, 잡담, 게임 테스트]
+   - 목소리가 인식되어 텍스트(말)는 존재하지만, 학술적/기술적/사회적 주제가 전혀 없고 전체가 장난, 게임 접속, 준비 중 나누는 사담, 혼잣말로 가득 찬 경우. (예: "네이버 게임에 들어가고 있습니다", "게임하고 싶다" 등)
+   - 이 경우, 음성이 감지되어 스크립트가 생성된 노력을 감안하여 절대 0.0점을 주지 마라! 대신 [Evaluation Rubric]의 모든 항목에 최하점을 부여하여 최종 content_score와 final_score가 반드시 '1.0점 이상 ~ 20.0점 미만' (예: 5.5점, 12.0점, 15.3점 등)의 최하점 범위 내에서만 채점되도록 하라.
+   - summary에는 "학술적 발표가 아닌 일상 잡담 및 시스템 테스트 음성입니다."라고 명시하라.
 
 # Instructions
 - 모든 응답은 한국어로 작성한다.
-- summary: 발표 전체 내용을 2~3문장으로 요약한다. (잡담일 경우 잡담이라고 명시)
-- content_feedback: 
-    - strength: 내용 면에서 우수한 점 3가지를 리스트로 작성 (잡담인 경우 "학술적 가치 없음" 등으로 채울 것)
-    - weakness: 논리적 허점이나 보완점 3가지를 리스트로 작성
-    - improvement: 다음 발표에서 즉시 개선 가능한 개선 조언 3가지를 리스트로 작성
-- persona_questions: 선택된 심사위원마다 성향을 재현한 질문을 1개씩 생성한다.
-- content_score, final_score: 위 공식에 의해 철저하게 계산된 점수.
+- content_feedback: 잡담일 경우 strength에는 "음성 감지 및 스크립트 변환 성공" 등을 적고, weakness와 improvement에는 학술적 발표 구성을 갖추라는 피드백을 작성하라.
+- persona_questions: [현재 심사위원 구성]에 나열된 선택된 심사위원(persona_type) 각각에 대해 '정확히 딱 1개씩만' 질문을 생성하라. 중복되거나 리스트를 넘어서는 개수 혹은 선택되지 않은 성향을 생성해서는 절대 안 된다.
+  * 만약 100% 잡담/사담이라 질문이 어렵다면, 선택된 페르소나 타입은 그대로 유지하되 question 내용만 다음과 같이 통일하라: "발표 형식을 갖추지 않아 질문이 불가능합니다. 학술 주제를 정해 다시 발표해주세요."
 """
+
 
 # ==========================================
 # 3. Structured Outputs를 위한 JSON 스키마
@@ -132,16 +125,15 @@ JSON_SCHEMA = {
 
 
 # ==========================================
-# 4. 분석 실행 함수 (후처리 안전장치 추가)
+# 4. 분석 실행 함수
 # ==========================================
 async def get_ai_presentation_feedback(script: str, selected_personas: List[str]):
     if not OPENAI_API_KEY:
         raise ValueError("API KEY가 로드되지 않았습니다. .env 파일을 확인하세요.")
     
-    # 텍스트 전처리 및 양끝 공백 제거
     clean_script = script.strip() if script else ""
     
-    # [1차 필터링]: 글자 수 예외 처리
+    # [1차 필터링]: 진짜 스크립트가 비어있거나 공백 제외 5자 미만일 때만 무조건 0점 하드코딩
     if not clean_script or len(clean_script.replace(" ", "")) < 5:
         return {
             "summary": "발표 스크립트가 존재하지 않거나 발표로 인정할 수 있는 유의미한 음성이 감지되지 않았습니다.",
@@ -182,19 +174,24 @@ async def get_ai_presentation_feedback(script: str, selected_personas: List[str]
 
         result = json.loads(content)
 
-        # 💡 [2차 후처리 필터링]: AI가 요약(summary)이나 피드백에 '사담', '잡담', '테스트' 등을 언급했다면 점수를 강제로 0점 처리
-        # 파이썬 코드 단에서 content_score 자체를 0.0으로 완벽하게 초기화하여 리턴합니다.
-        trigger_words = ["사담", "잡담", "테스트 음성", "주제가 전혀 없음", "주제가 없습니다", "발표 주제가 없음"]
-        is_chatting = any(word in result.get("summary", "") for word in trigger_words) or \
-              any(word in str(result.get("content_feedback", {})) for word in trigger_words)
-
-        if is_chatting:
-            result["content_score"] = 0.0  # 👈 백엔드 규격(float)에 맞게 0.0으로 강제 초기화
-            result["final_score"] = 0.0    # 👈 최종 총점도 0.0으로 강제 초기화
-            result["persona_questions"] = [
-                {"persona_type": q["persona_type"], "question": "학술적 발표가 아니므로 질문을 생성하지 않습니다."}
-                for q in result.get("persona_questions", [])
-            ]
+        # 💡 [2차 후처리 필터링 가공]: AI가 폭주하여 중복 생성하거나 다른 페르소나를 뱉는 현상 완벽 방어
+        requested_personas = selected_personas if selected_personas else ["basic"]
+        filtered_questions = []
+        
+        for p in requested_personas:
+            # AI 결과물 중에서 현재 순서에 맞는 페르소나 유형만 딱 1개 매핑
+            matched = next((q for q in result.get("persona_questions", []) if q.get("persona_type") == p), None)
+            if matched:
+                filtered_questions.append(matched)
+            else:
+                # 만약 AI가 누락했거나 잡담 처리에 실패한 경우 기본 구조 방어 문구 매핑
+                filtered_questions.append({
+                    "persona_type": p,
+                    "question": "발표 형식을 갖추지 않아 질문이 불가능합니다. 학술 주제를 정해 다시 발표해주세요."
+                })
+        
+        # 필터링 및 고정된 질문 리스트로 덮어쓰기 완료
+        result["persona_questions"] = filtered_questions
 
         return result
 
