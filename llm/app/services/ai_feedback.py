@@ -1,199 +1,186 @@
 import json
 import re
 from typing import List
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, RateLimitError, APIStatusError, APIConnectionError
 from fastapi import HTTPException
 from llm.app.core.config import OPENAI_API_KEY, OPENAI_MODEL
 
-import json
-import re
-from typing import List
-from openai import AsyncOpenAI
-from fastapi import HTTPException
-from llm.app.core.config import OPENAI_API_KEY, OPENAI_MODEL
 
-# ==========================================
-# 1. 🎯 [유저 제안 반영] 직관적인 흐름 감지 패턴 사전
-# ==========================================
-# 학술성을 빼고, 실제 대학생들이 발표할 때 쓰는 자연스러운 구어체 오프닝/연결어 패턴
-PRESENTATION_PATTERNS = [
-    "안녕하세요", "소개하겠습니다", "설명드리겠습니다", "발표를 시작", 
-    "이번 주제", "저희 팀은", "먼저", "다음으로", "마지막으로", "결론적으로", "저는", "저희는"
-]
-
-# 100% 순수 잡담 및 장난, 징징거림만 잡아내는 강력한 잡담 필터
-CHAT_KEYWORDS = [
-    "배고파", "졸려", "게임", "놀자", "귀찮아", 
-    "ㅋㅋ", "ㅎㅎ", "뭐하지", "하고 싶다", "안되네"
-]
-
-# 1. 교수님 페르소나 상세 정의
+# 페르소나 정의
 PERSONA_DETAILS = {
     "mentor": """[멘토형 — 친절하고 전문적인 교수님]
-- 성격: 발표자의 성장을 돕는 따뜻한 전문가. 발표 내용을 깊이 있게 경청하며, 논리적 완성도를 높일 수 있는 방향을 제시함.
-- 질문 방식: 발표에서 언급된 '핵심 개념'이나 '방법론'의 타당성을 묻고, 보완할 점을 제안하는 방식.
- 
-- 지시: 반드시 스크립트 내의 특정 키워드를 인용하여 질문하고, 정중한 존댓말을 사용하세요.""",
-# (예: "발표에서 [A]라는 해결책을 제시하셨는데, 이를 [B] 상황에 적용한다면 어떤 기대효과가 있을까요?")
+- 성격: 발표자의 성장을 돕는 따뜻한 전문가. 논리적 완성도를 높일 수 있는 방향을 제시함.
+- 질문 방식: 스크립트 내 '핵심 개념'이나 '방법론'의 타당성을 묻고, 보완점을 제안.
+- 지시: 반드시 스크립트 내 특정 키워드를 인용하여 질문하고, 정중한 존댓말을 사용하세요.""",
 
     "press": """[압박형 — 까다롭고 날카로운 전문가 교수님]
-- 성격: 매우 높은 전문성을 바탕으로 논리적 허점과 근거의 빈약함을 집요하게 파고듦. 칭찬보다는 비판적 검증에 집중함.
-- 질문 방식: 발표자가 제시한 '근거'의 취약점을 공격하거나, 반대 사례를 들어 당혹스럽게 만드는 방식.
-  
-- 지시: 날카로운 통찰력을 보여주되 인신공격은 금지하며, 존댓말을 하되 권위적인 분위기를 조성하세요.""",
-#(예: "본인은 [A]라고 주장하지만, 실제 법령이나 통계는 [B]라고 말합니다. 이거 논리적 모순 아닌가요?")
+- 성격: 높은 전문성으로 논리적 허점과 근거의 빈약함을 집요하게 파고듦.
+- 질문 방식: 발표자가 제시한 '근거'의 취약점을 공격하거나 반대 사례를 제시.
+- 지시: 날카로운 통찰력을 보여주되 인신공격은 금지. 권위적이지만 존댓말을 사용하세요.""",
 
     "troll": """[트롤형 — 무성의하고 맥락 없는 교수님]
-- 성격: 발표에는 관심이 없고 본인의 기분이나 아주 지엽적인 부분에 집착함. 전문성은 낮으나 까다로운 태도를 보임.
-- 질문 방식: 이미 설명한 내용을 다시 묻거나, 발표 주제와 상관없는 개인적인 궁금증 혹은 단어 하나에 트집 잡는 방식.
-
-- 지시: 무성의한 태도를 유지하며, 전문적인 깊이보다는 청중을 당황하게 만드는 소모적인 질문을 던지세요. 단 존댓말을 사용하세요.""",
-#  (예: "아까 [A]라고 말한 것 같은데 다시 설명해봐요.")
+- 성격: 발표에 관심이 없고 지엽적인 부분에 집착함. 전문성은 낮으나 까다로운 태도.
+- 질문 방식: 이미 설명한 내용을 재질문하거나 주제와 무관한 지엽적 트집.
+- 지시: 무성의한 태도를 유지하되, 존댓말은 반드시 사용하세요.""",
 
     "basic": """[기본형 — 친절하지만 원론적인 교수님]
-- 성격: 발표자의 노력을 격려하며 무난하고 표준적인 질문을 던짐. 깊은 전문 지식보다는 발표의 전반적인 흐름과 준비 과정을 확인하려 함.
-- 질문 방식: 발표 내용의 '의의'나 '청중 타겟팅', 혹은 '추후 발전 방향'에 대해 묻는 방식.
-  
-- 지시: 부드럽고 따뜻한 말투를 사용하며, 발표자가 자신의 준비 과정을 충분히 설명할 기회를 주는 질문을 하세요."""
-#(예: "[A]라는 주제를 선정하게 된 특별한 계기가 있나요?")
+- 성격: 발표자의 노력을 격려하며 무난하고 표준적인 질문을 던짐.
+- 질문 방식: 발표 '의의', '청중 타겟', '추후 발전 방향'에 대해 묻는 방식.
+- 지시: 부드럽고 따뜻한 말투로, 발표자가 충분히 설명할 기회를 주는 질문을 하세요."""
 }
 
+
 # ==========================================
-# 2. 🛡️ [최종 진화] 규칙 기반 의도/분량 4단계 분류 엔진
+# 2. 🛡️ 스크립트 분류 엔진 (물리적 지표 기반 최소 제어)
 # ==========================================
 def classify_script(script: str) -> str:
     text = script.strip()
     cleaned = text.replace(" ", "")
-    
+
     # 1단계: 완전 무음 / 공백 최소 분량 미달 판정 (Silent)
     if not cleaned or len(cleaned) < 5:
         return "silent"
 
-    # [유저 컴프리헨션 구조 적용]: 각 사전 컴포넌트 포함 여부 카운팅
-    presentation_score = sum(1 for p in PRESENTATION_PATTERNS if p in text)
-    chat_score = sum(1 for c in CHAT_KEYWORDS if c in text)
-
-    # 🎯 [제일 큰 문제 2 반영]: 잡담 키워드가 2개 이상 꽂히면 하단 로직 볼 것도 없이 강제 차단 (Obvious Chat)
-    if chat_score >= 2:
-        return "chat"
-
-    # 2단계: 발표자로서 청중과 대화하려는 최소한의 의도/패턴 확인
-    if presentation_score < 2:
-        return "chat"
-
-    # 3단계: Whisper STT 특성(쉼표, 줄바꿈)을 감안한 정교한 문장 수 분석
-    sentences = [s for s in re.split(r'[.!?,\n]|다\.|요\.', text) if s.strip()]
-    sentence_count = len(sentences)
-
-    # 🎯 [제일 큰 문제 3 반영]: 연결 패턴 단어만 도배한 알맹이 없는 입력 필터링
-    # 전체 글자 수가 40자 미만이거나 문장 개수가 3개 미만인 경우 (Weak Presentation)
-    if len(cleaned) < 40 or sentence_count < 3:
+    # 2단계: Whisper STT 특성(문장부호 누락)을 감안한 텍스트 절대 길이 검증 (Weak Presentation)
+    if len(cleaned) < 25:
         return "weak_presentation"
-        
-    # 4단계: 모든 방어선을 뚫고 검증 완료된 정식 발표 데이터
+
     return "presentation"
 
+
+# [실무 가드]: GPT의 피드백 배열 개수 뇌절을 방어하고 정확히 3개로 정형화하는 함수
+def normalize_feedback(arr: list, fallback: List[str]) -> List[str]:
+    if not isinstance(arr, list):
+        return fallback
+    arr = [str(x).strip() for x in arr if str(x).strip()]
+    if len(arr) >= 3:
+        return arr[:3]
+    while len(arr) < 3:
+        arr.append(fallback[len(arr)])
+    return arr
+
+
 # ==========================================
-# 3. 고정 응답 제어 함수 (서버 즉시 반환)
+# 3. 고정 응답 함수 (서버 내부 즉시 반환)
 # ==========================================
-def get_silent_response(selected_personas: List[str]):
+def get_silent_response(selected_personas: List[str]) -> dict:
     personas = selected_personas if selected_personas else ["basic"]
     return {
         "summary": "발표 스크립트가 존재하지 않거나 발표로 인정할 수 있는 유의미한 음성이 감지되지 않았습니다.",
         "persona_questions": [{"persona_type": p, "question": "아무런 발표도 진행되지 않아 질문을 드릴 수가 없습니다."} for p in personas],
         "content_feedback": {
-            "strength": ["감지된 유의미한 내용이 없습니다."],
-            "weakness": ["발표가 진행되지 않았거나 분량이 무의미할 정도로 짧습니다."],
-            "improvement": ["발표 스크립트를 입력하거나 오디오 녹음 상태를 확인하세요."]
+            "strength": ["음성 신호 확인이 불가능합니다.", "텍스트 데이터 분량이 존재하지 않습니다.", "분석을 진행할 기본 대상이 없습니다."],
+            "weakness": ["발표 대본의 절대적인 텍스트 길이가 부족합니다.", "도입-전개-결론의 구조적 전개가 일어나지 않았습니다.", "프로젝트에 대한 설명 정보량이 전무합니다."],
+            "improvement": ["마이크 녹음 상태 및 오디오 환경을 재점검해 보세요.", "연습하고자 하는 발표의 스크립트 내용을 정상적으로 입력해 주세요.", "의도적인 무음 상태가 지속되었는지 확인이 필요합니다."]
         },
+        "structure_score": 0.0,
+        "evidence_score": 0.0,
+        "expression_score": 0.0,
         "content_score": 0.0,
         "delivery_score": 0.0,
         "final_score": 0.0
     }
 
-def get_low_score_response(selected_personas: List[str]):
-    personas = selected_personas if selected_personas else ["basic"]
-    return {
-        "summary": "정식 발표 형식을 갖추지 않은 일상 사담 또는 테스트 음성으로 판단되었습니다.",
-        "persona_questions": [{"persona_type": p, "question": "발표 형식을 갖추지 않아 질문이 불가능합니다. 발표 주제를 정해 다시 발표해주세요."} for p in personas],
-        "content_feedback": {
-            "strength": ["음성이 정상적으로 감지 및 텍스트 대본화되었습니다."],
-            "weakness": ["발표 오프닝이나 소통 연결 구조 등 청중에게 정보를 전달하려는 흐름이 전혀 존재하지 않습니다."],
-            "improvement": ["연습하고자 하는 팀플이나 과제 주제를 정확히 밝혀주세요.", "사담을 제외하고 정식 발표 오프닝(안녕하세요 등)과 함께 재도전해 보세요."]
-        },
-        "content_score": 8.0,   
-        "delivery_score": 0.0,  
-        "final_score": 8.0  
-    }
 
-def get_weak_presentation_response(selected_personas: List[str]):
+def get_weak_presentation_response(selected_personas: List[str]) -> dict:
     personas = selected_personas if selected_personas else ["basic"]
     return {
         "summary": "발표의 오프닝이나 의도는 감지되었으나, 본문 설명의 분량이 너무 짧아 구체적인 루브릭 비평이 불가능합니다.",
         "persona_questions": [{"persona_type": p, "question": "발표 형식을 갖추지 않아 질문이 불가능합니다. 본문 내용을 채워 다시 발표해주세요."} for p in personas],
         "content_feedback": {
-            "strength": ["안녕하세요, 연결 패턴 등 기본적인 발표 소통 레이아웃을 시도하려는 의도가 확인되었습니다."],
-            "weakness": ["발표 본문의 정보량이 지나치게 짧아 구체적인 설명 구조 및 타당성 검증이 불가능합니다."],
-            "improvement": ["준비하신 과제나 기획 서비스의 세부 본문 내용을 최소 3문장 이상 추가하여 구체적으로 설명해 주세요."]
+            "strength": ["기본적인 발표 의도 표현 형식을 시도하려는 의지가 확인되었습니다.", "스피치를 시작하려는 서두 연결 시도가 감지되었습니다.", "최소한의 음성 입력 텍스트화가 완료되었습니다."],
+            "weakness": ["발표 본문의 정보량이 지나치게 짧아 내용 비평이 불가능합니다.", "주제를 설명할 구체적인 기능이나 근거가 생략되어 있습니다.", "전개 및 결론으로 이어지는 거시 논리 구조가 결여되었습니다."],
+            "improvement": ["준비하신 과제나 서비스의 핵심 본문을 최소 3문장 이상 추가해 보세요.", "서론만 말하고 끝나지 않도록 주요 특징 및 구현 내용을 기술해 주세요.", "전달하고자 하는 핵심 정보를 풍부하게 서술한 뒤 재도전해 보세요."]
         },
-        "content_score": 25.0,   # 최소 하한선 점수 보장 (비용 차단)
-        "delivery_score": 0.0,  
-        "final_score": 25.0  
+        "structure_score": 35.0,
+        "evidence_score": 15.0,
+        "expression_score": 25.0,
+        "content_score": 25.0,
+        "delivery_score": 0.0,
+        "final_score": 25.0
     }
 
 
 # ==========================================
-# 4. 학술적/프로젝트 루브릭 전용 시스템 프롬프트
+# 4. [맥락 감지 강화형] 시스템 프롬프트 생성
 # ==========================================
-def generate_system_prompt(selected_personas: List[str]):
+def generate_system_prompt(selected_personas: List[str]) -> str:
     valid_personas = [p for p in selected_personas if p in PERSONA_DETAILS]
     if not valid_personas:
         valid_personas = ["basic"]
 
-    persona_section = ""
-    for p in valid_personas:
-        persona_section += f"\n{PERSONA_DETAILS[p]}\n"
+    persona_section = "\n".join(PERSONA_DETAILS[p] for p in valid_personas)
 
     return f"""
 # Role & Academic Background
-너는 대학 및 고등학교의 다양한 발표(팀플 기획, 창업 아이디어, 디자인, 마케팅 전략, 서비스 소개 등)를 채점하는 '루브릭 기반 내용 심사위원'이다.
-주관적 감정이나 학술어 집착을 배제하고, 오직 아래 제공된 [Evaluation Rubric]의 정량적 채점 기준과 공식에 의해서만 기계적으로 점수를 산출해야 한다.
+너는 학교, 기업, 창업 피칭, 마케팅, 자기소개 등 **다양한 상황의 발표**를 심사하는 '루브릭 기반 내용 심사위원'이다.
+단순히 특정 단어가 매칭되었는가에 집착하지 말고, **전체적인 맥락과 정보 전달의 흐름**을 종합적으로 인지하여 채점하라.
 
 [현재 심사위원 구성]
 {persona_section}
 
-# Evaluation Rubric (엄격한 항목별 배점 및 채점 기준)
-최종 점수는 다음 3가지 루브릭 평가 항목의 가중치를 합산하여 100점 만점으로 정밀 산출한다.
+# 🚨 최우선 채점 가이드라인 (맥락 인지 규칙)
 
-1. 구조와 논리성 (배점 가중치: 40%)
-   - [채점 요건]: 도입부(인사, 팀/발표자 소개, 주제 및 목적), 전개(핵심 설명, 상세 기획/아이디어 내용), 결론(요약, 맺음말)의 흐름이 명확히 존재하는가?
-   - [기준]: 청중이 발표의 흐름을 쉽게 파악할 수 있도록 기본적인 연결어("안녕하세요", "먼저", "다음으로", "마지막으로")가 유기적으로 잘 쓰였는지 채점하라.
+1. [🔊 STT Noise Handling — 과도한 추론 금지]
+   - STT 결과물이므로 단어 오인식·발음 오류가 포함될 수 있다. (예: "AI" → "WEI")
+   - 문맥상 명확히 유추되는 단순 매핑 오류는 정상 단어로 간주하라.
+   - 단, 의미 불명확한 문장까지 과도하게 추론하여 없는 내용을 상상하지 마라.
+     문맥 흐름이 깨져 있다면 그것은 발표자의 논리 부재이므로 감점하라.
 
-2. 타당성과 근거 (배점 가중치: 40%)
-   - [채점 요건]: 발표자가 제시한 기획, 전략, 주장 혹은 서비스 아이디어가 설득력이 있는가?
-   - [기준]: 이를 뒷받침할 구체적인 구현/실행 방법론, 시장 조사 자료, 사례, 통계, 혹은 구체적 예시 등의 객관적 근거가 스크립트 내에 성실하게 포함되었는지 검증하고 감점/가점하라.
+2. [🏗️ 구조적 맥락 중심의 평가 및 사담 통제]
+   - 🎯 **[도입부 평가]**: 발표가 시작될 때 청중에게 인사, 본인/팀 소개, 혹은 발표의 주제나 목적을 밝히며 "첫 시작을 올바르게 열었는가"를 확인하여 structure_score에 적극 반영하라.
+   - 🎯 **[설명 단위 평가]**: 문장의 유창함보다 발표 상황에 맞는 실질적인 설명 단위(서비스 기능, 창업 비전, 경력 사항, 마케팅 전략 등)가 풍부하게 담겼는지 채점하라. 단순 중복이나 장황하게 늘린 문장은 정보량으로 인정하지 않는다.
+   - 🎯 **[구어체 사담 포용 규칙]**: 발표 내용 중 일부 사담이나 구어체 섞인 표현(예: "밤을 새워서 졸리지만", "들리시나요" 등)이 포함되어 있더라도, 전체적인 흐름이 정보 전달 중심으로 전개된다면 지엽적인 표현에 얽매이지 말고 정상 발표로 판단하라.
+   - ⚠️ 단, 스크립트 대부분이 청중을 향한 정보 전달이 아닌 100% 일상 잡담, 혼잣말, 장난성 낙서 대화로만 가득 차 있다면 **발표 구조 전무 조항**을 적용하여 모든 항목 점수를 20점 미만으로 엄격히 제한하라.
 
-3. 질의응답 및 표현 (배점 가중치: 20%)
-   - [채점 요건]: 발표 내용이 청중에게 오해 없이 완결성 있게 전달되는가? 발표 주제에 적합한 단어와 어휘를 올바르게 구사했는지 채점하라.
+3. [⏱️ 진행형·중간 발표 및 상황 다양성 허용]
+   - 완성된 결과물 외에도 개발 중간 공유, 아이디어 피칭, 면접용 자기소개 발표 등을 모두 수용한다.
+   - 향후 계획이나 포부를 밝히는 문장도 구체적인 방향성이 있다면 훌륭한 결론 구조의 일부로 인정하라. 단, 구체적 실행 계획과 연결될 때만 가산점을 부여하라.
 
-# 🧮 Scoring Rules (점수 산출 공식)
-- 위 3가지 루브릭 항목을 각각 100점 만점으로 채점한 뒤 아래 공식에 대입하여 소수점 첫째 자리까지 계산하라:
-  * content_score = (구조와 논리성 점수 * 0.4) + (타당성과 근거 점수 * 0.4) + (질의응답 및 표현 점수 * 0.2)
-  * final_score = content_score
-  
-# 🚨 감점 하한선 및 0점 통제 조항
-- 발표의 완성도가 낮거나 분량이 적더라도, '정상적인 발표의 형태'라면 절대로 점수에 0.0점을 부여해서는 안 된다. 최소 20점 이상 영역에서 루브릭 가이드에 따라 정량 감점하라.
-- 0.0점은 오직 앞뒤 맥락이 아예 없는 공백이거나 완전 무음일 때만 부여할 수 있다.
+# 📊 루브릭 채점 앵커 (Few-shot 기준점)
+- [도입부(인사/주제)를 올바르게 시작 + 본문 설명 단위 3개 이상 + 명확한 흐름]
+  → structure_score: 90 / evidence_score: 85 / expression_score: 85 → content_score ≈ 87점
+
+- [인사와 오프닝은 훌륭하나 결론이 미완성 + 설명 단위 2개]
+  → structure_score: 60 / evidence_score: 55 / expression_score: 65 → content_score ≈ 59점
+
+- [문장은 자연스러우나 알맹이(기능 설명, 기획 등)가 전혀 없는 빈 발표]
+  → structure_score: 50 / evidence_score: 35 / expression_score: 60 → content_score ≈ 46점
+
+- [발표 형식이 아닌 100% 일상 잡담, 혼잣말, 장난성 입력]
+  → structure_score: 15 이하 / evidence_score: 10 이하 / expression_score: 15 이하 → content_score < 20점
+
+# Evaluation Rubric
+점수는 아래 3가지 항목을 각각 100점 만점으로 정밀 채점한다.
+
+1. structure_score (가중치 40%): 구조와 논리성
+   - 인사와 주제 선정을 통해 발표의 첫 시작을 올바르게 전개했는가? 도입 -> 전개 -> 결론의 흐름이 맥락상 존재하는가?
+   - 청중을 향한 발언이 아닌 사담/장난으로만 가득 찬 대본일 경우 이 점수는 15점 이하로 제한된다.
+
+2. evidence_score (가중치 40%): 타당성과 근거
+   - 발표 상황(팀플, 창업, 자기소개 등)에 맞는 구체적인 설명과 방법론, 아이디어가 설득력 있게 제시되었는가?
+
+3. expression_score (가중치 20%): 질의응답 및 표현
+   - 주제에 적합한 어휘와 표현을 구사했는가? (STT 오타는 정상 단어로 간주할 것)
+
+# 🧮 점수 산출 공식
+content_score = (structure_score × 0.4) + (evidence_score × 0.4) + (expression_score × 0.2)
+delivery_score = 0.0
+final_score = content_score
 
 # Instructions
 - 모든 응답은 한국어로 작성한다.
-- content_feedback: 루브릭 평가 결과에 기반하여 strength, weakness, improvement 조항을 각각 '정확히 딱 3가지씩' 성실하게 리스트로 출력하라.
-- persona_questions: [현재 심사위원 구성]에 나열된 선택된 심사위원(persona_type) 각각에 대해 '정확히 딱 1개씩만' 성향을 반영한 질문을 생성하라. 개수와 타입을 완벽하게 준수하라.
+- content_feedback: strength / weakness / improvement 각각 정확히 3가지씩 성실한 리스트 형태로 출력하라.
+- persona_questions: 선택된 심사위원(persona_type)별로 정확히 1개씩 질문을 생성하라.
 """
 
+
+# ==========================================
+# 5. JSON 스키마 (실패율 최소화를 위해 strict: False 세팅)
+# ==========================================
 JSON_SCHEMA = {
     "name": "presentation_feedback_schema",
-    "strict": True,
+    "strict": False,
     "schema": {
         "type": "object",
         "properties": {
@@ -203,64 +190,83 @@ JSON_SCHEMA = {
                 "items": {
                     "type": "object",
                     "properties": {
-                        "persona_type": {"type": "string", "enum": ["mentor", "press", "troll", "basic"]},
+                        "persona_type": {
+                            "type": "string",
+                            "enum": ["mentor", "press", "troll", "basic"]
+                        },
                         "question": {"type": "string"}
                     },
-                    "required": ["persona_type", "question"],
-                    "additionalProperties": False
+                    "required": ["persona_type", "question"]
                 }
             },
             "content_feedback": {
                 "type": "object",
                 "properties": {
-                    "strength": { "type": "array", "items": { "type": "string" } },
-                    "weakness": { "type": "array", "items": { "type": "string" } },
-                    "improvement": { "type": "array", "items": { "type": "string" } }
+                    "strength":    {"type": "array", "items": {"type": "string"}},
+                    "weakness":    {"type": "array", "items": {"type": "string"}},
+                    "improvement": {"type": "array", "items": {"type": "string"}}
                 },
-                "required": ["strength", "weakness", "improvement"],
-                "additionalProperties": False
+                "required": ["strength", "weakness", "improvement"]
             },
-            "content_score": {"type": "number"},
-            "delivery_score": {"type": "number"},
-            "final_score": {"type": "number"}
+            "structure_score":  {"type": "number"},
+            "evidence_score":   {"type": "number"},
+            "expression_score": {"type": "number"},
+            "content_score":    {"type": "number"},
+            "delivery_score":   {"type": "number"},
+            "final_score":      {"type": "number"}
         },
-        "required": ["summary", "persona_questions", "content_feedback", "content_score", "delivery_score", "final_score"],
-        "additionalProperties": False
+        "required": [
+            "summary", "persona_questions", "content_feedback",
+            "structure_score", "evidence_score", "expression_score",
+            "content_score", "delivery_score", "final_score"
+        ]
     }
 }
 
 
 # ==========================================
-# 5. 메인 분석 엔진 인터페이스
+# 6. 메인 분석 엔진 인터페이스
 # ==========================================
-async def get_ai_presentation_feedback(script: str, selected_personas: List[str]):
+async def get_ai_presentation_feedback(
+    script: str,
+    selected_personas: List[str]
+) -> dict:
+
     if not OPENAI_API_KEY:
         raise ValueError("API KEY가 로드되지 않았습니다. .env 파일을 확인하세요.")
-    
+
     clean_script = script.strip() if script else ""
-    
-    # ⚡ [Rule-Based 4단계 정밀 필터 작동]
     classification = classify_script(clean_script)
-    
+
+    # ── 즉시 반환 레이어 ──────────────────────────────────
     if classification == "silent":
         return get_silent_response(selected_personas)
-        
-    if classification == "chat":
-        return get_low_score_response(selected_personas)
-        
+
     if classification == "weak_presentation":
         return get_weak_presentation_response(selected_personas)
 
-    # 🚀 모든 방어선을 통과한 정석 대본만 비용을 투자하여 GPT 루브릭 비평 진행
-    clean_script = clean_script.replace("\n", " ").replace("\r", " ").replace("\t", " ")
+    # ── OpenAI 비동기 연산 레이어 ──────────────────────────
+    clean_script = (
+        clean_script
+        .replace("\n", " ")
+        .replace("\r", " ")
+        .replace("\t", " ")
+    )
+
     client = AsyncOpenAI(api_key=OPENAI_API_KEY)
-    
+
     try:
         response = await client.chat.completions.create(
             model=OPENAI_MODEL,
             messages=[
-                {"role": "system", "content": generate_system_prompt(selected_personas)},
-                {"role": "user", "content": f"다음 발표 스크립트를 루브릭 기반으로 철저히 분석해 주세요:\n\n{clean_script}"}
+                {
+                    "role": "system",
+                    "content": generate_system_prompt(selected_personas)
+                },
+                {
+                    "role": "user",
+                    "content": f"다음 발표 스크립트를 루브릭 기반으로 철저히 분석해 주세요:\n\n{clean_script}"
+                }
             ],
             response_format={"type": "json_schema", "json_schema": JSON_SCHEMA},
             temperature=0.0
@@ -272,19 +278,54 @@ async def get_ai_presentation_feedback(script: str, selected_personas: List[str]
 
         result = json.loads(content)
 
-        # 🛡️ 3차 후처리 보정 연산부 (GPT 예외 차단)
-        # 이미 필터를 안전하게 거치고 올라왔음에도 AI가 폭주하여 0점을 준 경우 발표 최소 하한선인 25.0점으로 강력하게 강제 제어
-        script_length = len(clean_script.replace(" ", ""))
-        if script_length >= 20:
-            if result.get("content_score", 0) == 0.0 and result.get("final_score", 0) == 0.0:
-                result["content_score"] = 25.0
-                result["final_score"] = 25.0
-                result["summary"] = "음성은 정상 감지되었으나 구조적 완결성이 낮아 최소 발표 하한 점수(25점)로 보정되었습니다."
+        # 🛡️ 3차 후처리 안전 제어 및 코드 클램핑부
+        struct_s = result.get("structure_score", 0.0)
+        evid_s = result.get("evidence_score", 0.0)
+        expr_s = result.get("expression_score", 0.0)
 
-        # 타 파트 변수 영역 간섭 원천 배제 및 무결성 보장
+        # 0.0~100.0 범위 강제 바인딩 (LLM 오버플로우 방어)
+        struct_s = max(0.0, min(struct_s, 100.0))
+        evid_s = max(0.0, min(evid_s, 100.0))
+        expr_s = max(0.0, min(expr_s, 100.0))
+
+        calc_content_score = (struct_s * 0.4) + (evid_s * 0.4) + (expr_s * 0.2)
+
+        # 🎯 [수정 세팅 반영]: 중복 피드백 방지 가드 장착 완료
+        if calc_content_score < 25.0:
+            if struct_s > 20.0:
+                calc_content_score = 25.0
+                current_summary = result.get("summary", "")
+                # 요약 내부에 '25점'이라는 멘트가 이미 들어가 있는지 확인하여 중복 병합 원천 차단
+                if "25점" not in current_summary:
+                    result["summary"] = current_summary + " (다만 구조적 완결성이 낮아 최소 발표 하한(25점)으로 보정되었습니다.)"
+
+        # 최종 데이터 무결성 강제 동기화 매핑
+        result["structure_score"] = float(struct_s)
+        result["evidence_score"] = float(evid_s)
+        result["expression_score"] = float(expr_s)
+        result["content_score"] = float(calc_content_score)
         result["delivery_score"] = 0.0
+        result["final_score"] = float(calc_content_score)
 
-        # 💡 페르소나 질문 정형화 바인딩 필터
+        # 프론트엔드 UI 레이아웃 유지를 위한 피드백 배열 3개 고정 보정화 레이어
+        inner_feedback = result.get("content_feedback", {})
+        
+        fallback_strength = ["주제 전달을 위한 설명 시도가 감지되었습니다.", "기본적인 발표 흐름이 정비되어 있습니다.", "발표자로서 정보를 소통하려는 의도가 확인됩니다."]
+        fallback_weakness = ["발표 세부 정보량의 확장 여지가 남아있습니다.", "일부 논리 구조의 흐름이 다소 뭉개져 있습니다.", "본론을 뒷받침할 구체적인 예시가 보완되면 좋습니다."]
+        fallback_improvement = ["설명 단위를 조금 더 다양화하여 분량을 늘려보세요.", "도입부의 주제 소개를 조금 더 명확히 명시해 보세요.", "향후 계획에 대한 실행 방향성을 덧붙여 보세요."]
+
+        if isinstance(inner_feedback, dict):
+            result["content_feedback"] = {
+                "strength": normalize_feedback(inner_feedback.get("strength"), fallback_strength),
+                "weakness": normalize_feedback(inner_feedback.get("weakness"), fallback_weakness),
+                "improvement": normalize_feedback(inner_feedback.get("improvement"), fallback_improvement)
+            }
+        else:
+            result["content_feedback"] = {
+                "strength": fallback_strength, "weakness": fallback_weakness, "improvement": fallback_improvement
+            }
+
+        # 💡 페르소나 질문 싱크 필터
         requested_personas = selected_personas if selected_personas else ["basic"]
         filtered_questions = []
         for p in requested_personas:
@@ -296,10 +337,23 @@ async def get_ai_presentation_feedback(script: str, selected_personas: List[str]
                     "persona_type": p,
                     "question": "해당 성향의 심사위원이 생성한 추가 질문이 없습니다."
                 })
-        
+
+        if len(filtered_questions) == 0:
+            filtered_questions.append({
+                "persona_type": "basic",
+                "question": "발표 전반적인 준비 과정과 기획 의도에 대해 간략히 추가 설명해 주시겠습니까?"
+            })
+
         result["persona_questions"] = filtered_questions
         return result
 
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail="AI 응답 파싱 실패: JSON 형식 오류")
+    except RateLimitError:
+        raise HTTPException(status_code=429, detail="API 요청 한도 초과. 잠시 후 재시도하세요.")
+    except APIStatusError as e:
+        raise HTTPException(status_code=502, detail=f"OpenAI API 오류: {e.message}")
+    except APIConnectionError:
+        raise HTTPException(status_code=503, detail="OpenAI 서버 연결 실패. 네트워크를 확인하세요.")
     except Exception as e:
-        print(f"AI Feedback Error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"AI 분석 중 오류가 발생했습니다: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"알 수 없는 서버 내부 오류: {str(e)}")
