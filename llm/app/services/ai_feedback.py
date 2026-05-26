@@ -63,17 +63,19 @@ def generate_system_prompt(selected_personas: List[str]):
 3. 질의응답 및 표현 (20%): 정보의 완결성 및 청중이 이해할 수 있는 전문용어 사용 여부.
 
 # 🚨 치명적 감점 및 0점 기준 (Zero-Tolerance Policy)
-- [무의미한 잡담 및 장난]: 발표 주제가 없거나, 학술적 목적이 없는 단순 장난/잡담(예: "짱구가 있잖아", "도라에몽이다", "오 오늘은 그렇구나" 등)인 경우:
-  * 구조와 논리성: 0점
-  * 타당성과 근거: 0점
-  * 질의응답 및 표현: 최대 10점 이하
-  * 이 경우 content_score, delivery_score, final_score는 모두 10점을 넘길 수 없다.
-- [분량 부족]: 발표 스크립트가 3문장 미만이거나 뼈대만 있는 경우, 모든 항목은 최대 20점을 넘지 못한다.
+- [🛑 완전 0점 필터링 대상]: 아래 조건 중 하나라도 해당하면 발표로 인정하지 말고 무조건 모든 점수(content_score, final_score)를 0.0점 처리하라.
+  1. 특정 학술적/기술적/사회적 '주제'가 없고, 발표 준비 중 나누는 사담이나 혼잣말인 경우 (예: "음소거 해버리면 되나", "1분만 찍을까", "정신 못 차리네", "좋은 거 했어?" 등)
+  2. 장난, 낙서성 문장, 일상 잡담 (예: 짱구, 도라에몽 등)
+  3. 발표 스크립트의 형태가 아닌, 단순히 카메라나 녹음 상태를 테스트하는 대화인 경우
+  * 이 조건에 걸리면 summary에 "학술적 발표가 아닌 일상 사담 및 테스트 음성"이라고 명시하고, 피드백 리스트에는 감점 이유만 적은 뒤 점수는 기계적으로 0.0점을 부여하라.
+
+- [분량 부족]: 발표 스크립트가 3문장 미만이거나 학술적 뼈대만 간신히 있는 경우, 위의 잡담 조건에 걸리지 않더라도 모든 항목은 최대 10점을 넘지 못한다.
 
 # Scoring Rules (산출 공식)
-- content_score = (구조와 논리성 * 0.4) + (타당성과 근거 * 0.4) + (질의응답 및 표현 * 0.2)
-- delivery_score = 내용의 전달력 점수 (잡담이나 비정상 스크립트는 0~10점 사이 고정)
-- final_score = (content_score + delivery_score) / 2
+- 사담/잡담/테스트 음성인 경우 계산할 필요도 없이 최종 점수는 0.0점이다.
+- 정상적인 발표인 경우에만 아래 공식을 따른다:
+  * content_score = (구조와 논리성 * 0.4) + (타당성과 근거 * 0.4) + (질의응답 및 표현 * 0.2)
+  * final_score = content_score
 * 모든 점수는 소수점 첫째 자리까지 계산한다.
 
 # Instructions
@@ -84,7 +86,7 @@ def generate_system_prompt(selected_personas: List[str]):
     - weakness: 논리적 허점이나 보완점 3가지를 리스트로 작성
     - improvement: 다음 발표에서 즉시 개선 가능한 개선 조언 3가지를 리스트로 작성
 - persona_questions: 선택된 심사위원마다 성향을 재현한 질문을 1개씩 생성한다.
-- content_score, delivery_score, final_score: 위 공식에 의해 철저하게 계산된 점수.
+- content_score, final_score: 위 공식에 의해 철저하게 계산된 점수.
 """
 
 # ==========================================
@@ -130,7 +132,7 @@ JSON_SCHEMA = {
 
 
 # ==========================================
-# 4. 분석 실행 함수
+# 4. 분석 실행 함수 (후처리 안전장치 추가)
 # ==========================================
 async def get_ai_presentation_feedback(script: str, selected_personas: List[str]):
     if not OPENAI_API_KEY:
@@ -139,7 +141,7 @@ async def get_ai_presentation_feedback(script: str, selected_personas: List[str]
     # 텍스트 전처리 및 양끝 공백 제거
     clean_script = script.strip() if script else ""
     
-    # 💡 [예외 처리]: 공백을 제거한 실제 글자 수가 5글자 미만이거나 완전히 비어있다면 즉시 0점 처리
+    # [1차 필터링]: 글자 수 예외 처리
     if not clean_script or len(clean_script.replace(" ", "")) < 5:
         return {
             "summary": "발표 스크립트가 존재하지 않거나 발표로 인정할 수 있는 유의미한 음성이 감지되지 않았습니다.",
@@ -157,9 +159,7 @@ async def get_ai_presentation_feedback(script: str, selected_personas: List[str]
             "final_score": 0.0
         }
     
-    # 줄바꿈 및 특수 공백 치환 (정상 스크립트일 때만 수행됨)
     clean_script = clean_script.replace("\n", " ").replace("\r", " ").replace("\t", " ")
-    
     client = AsyncOpenAI(api_key=OPENAI_API_KEY)
     
     try:
@@ -173,14 +173,31 @@ async def get_ai_presentation_feedback(script: str, selected_personas: List[str]
                 "type": "json_schema",
                 "json_schema": JSON_SCHEMA
             },
-            temperature=0.0  # 💡 완벽한 일관성(Determinism)을 위해 0.0으로 고정
+            temperature=0.0
         )
 
         content = response.choices[0].message.content
         if not content:
             raise HTTPException(status_code=500, detail="AI 응답 생성 실패")
 
-        return json.loads(content)
+        result = json.loads(content)
+
+        # 💡 [2차 후처리 필터링]: AI가 요약(summary)이나 피드백에 '사담', '잡담', '테스트' 등을 언급했다면 점수를 강제로 0점 처리
+        trigger_words = ["사담", "잡담", "테스트 음성", "주제가 전혀 없음", "주제가 없습니다", "발표 주제가 없음"]
+        is_chatting = any(word in result.get("summary", "") for word in trigger_words) or \
+                      any(word in str(result.get("content_feedback", {})) for word in trigger_words)
+
+        if is_chatting:
+            result["content_score"] = 0.0
+            result["delivery_score"] = 0.0
+            result["final_score"] = 0.0
+            # 질문도 "없음"으로 통일하거나 깔끔하게 비워줍니다.
+            result["persona_questions"] = [
+                {"persona_type": q["persona_type"], "question": "학술적 발표가 아니므로 질문을 생성하지 않습니다."}
+                for q in result.get("persona_questions", [])
+            ]
+
+        return result
 
     except Exception as e:
         print(f"AI Feedback Error: {str(e)}")
