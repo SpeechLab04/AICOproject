@@ -6,7 +6,9 @@ from fastapi import HTTPException
 from llm.app.core.config import OPENAI_API_KEY, OPENAI_MODEL
 
 
-# 페르소나 정의
+# ==========================================
+# 1. 👥 페르소나 상세 정의
+# ==========================================
 PERSONA_DETAILS = {
     "mentor": """[멘토형 — 친절하고 전문적인 교수님]
 - 성격: 발표자의 성장을 돕는 따뜻한 전문가. 논리적 완성도를 높일 수 있는 방향을 제시함.
@@ -42,14 +44,29 @@ def classify_script(script: str) -> str:
         return "silent"
 
     # 2단계: Whisper STT 특성(문장부호 누락)을 감안한 텍스트 절대 길이 검증 (Weak Presentation)
-    if len(cleaned) < 25:
+    if len(cleaned) < 35:
         return "weak_presentation"
 
     return "presentation"
 
 
-# [실무 가드]: GPT의 피드백 배열 개수 뇌절을 방어하고 정확히 3개로 정형화하는 함수
+# ==========================================
+# 3. 🔩 실무형 타입 및 배열 정형화 가드 함수
+# ==========================================
+def safe_float(value, default=0.0) -> float:
+    """🎯 [버그 패치 1 반영]: 소수점 뇌절 및 타 자료형 오염을 철저하게 분리 수금하는 정규식 서치 가드"""
+    try:
+        if isinstance(value, str):
+            match = re.search(r"-?\d+(\.\d+)?", value)
+            if match:
+                return float(match.group(0))
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def normalize_feedback(arr: list, fallback: List[str]) -> List[str]:
+    """GPT가 피드백 개수를 2개나 4개로 뇌절칠 때 정확히 3개 배열로 컷/패딩하여 프론트 UI 깨짐을 막는 가드"""
     if not isinstance(arr, list):
         return fallback
     arr = [str(x).strip() for x in arr if str(x).strip()]
@@ -61,7 +78,7 @@ def normalize_feedback(arr: list, fallback: List[str]) -> List[str]:
 
 
 # ==========================================
-# 3. 고정 응답 함수 (서버 내부 즉시 반환)
+# 4. 고정 응답 함수 (서버 내부 즉시 반환 레이어)
 # ==========================================
 def get_silent_response(selected_personas: List[str]) -> dict:
     personas = selected_personas if selected_personas else ["basic"]
@@ -102,7 +119,7 @@ def get_weak_presentation_response(selected_personas: List[str]) -> dict:
 
 
 # ==========================================
-# 4. [맥락 감지 강화형] 시스템 프롬프트 생성
+# 5. ⚡ [속도 최적화] 시스템 프롬프트 생성
 # ==========================================
 def generate_system_prompt(selected_personas: List[str]) -> str:
     valid_personas = [p for p in selected_personas if p in PERSONA_DETAILS]
@@ -112,71 +129,44 @@ def generate_system_prompt(selected_personas: List[str]) -> str:
     persona_section = "\n".join(PERSONA_DETAILS[p] for p in valid_personas)
 
     return f"""
-# Role & Academic Background
-너는 학교, 기업, 창업 피칭, 마케팅, 자기소개 등 **다양한 상황의 발표**를 심사하는 '루브릭 기반 내용 심사위원'이다.
-단순히 특정 단어가 매칭되었는가에 집착하지 말고, **전체적인 맥락과 정보 전달의 흐름**을 종합적으로 인지하여 채점하라.
+# Role
+너는 발표(팀플, 창업 피칭, 자기소개 등)를 채점하는 '루브릭 기반 내용 심사위원'이다. 
+단어 매칭 대신 전체 문맥과 정보 전달 흐름을 기준으로 채점하라.
 
 [현재 심사위원 구성]
 {persona_section}
 
-# 🚨 최우선 채점 가이드라인 (맥락 인지 규칙)
+# 🚨 최우선 가이드라인
 
-1. [🔊 STT Noise Handling — 과도한 추론 금지]
-   - STT 결과물이므로 단어 오인식·발음 오류가 포함될 수 있다. (예: "AI" → "WEI")
-   - 문맥상 명확히 유추되는 단순 매핑 오류는 정상 단어로 간주하라.
-   - 단, 의미 불명확한 문장까지 과도하게 추론하여 없는 내용을 상상하지 마라.
-     문맥 흐름이 깨져 있다면 그것은 발표자의 논리 부재이므로 감점하라.
+1. [🔊 STT 노이즈] 문맥상 유추 가능한 단순 STT 오타는 정상 단어로 간주하되, 의미가 아예 깨진 문장까지 없는 내용을 상상해서 보완하지 마라(부재 시 감점).
+2. [🏗️ 구조 및 사담] 오프닝(인사/주제 선언) 유무를 structure_score에 적극 반영하라. 구어체나 가벼운 사담이 섞여도 정보 전달이 중심이면 포용하되, 대본 전체가 100% 사담/장난이면 모든 항목 점수를 20점 미만으로 제한하라.
+3. [⏱️ 진행형] 중간 공유, 아이디어 피칭, 면접용 자기소개도 정상 발표로 수용하며, 향후 계획도 구체성이 있다면 결론 구조로 인정하라.
 
-2. [🏗️ 구조적 맥락 중심의 평가 및 사담 통제]
-   - 🎯 **[도입부 평가]**: 발표가 시작될 때 청중에게 인사, 본인/팀 소개, 혹은 발표의 주제나 목적을 밝히며 "첫 시작을 올바르게 열었는가"를 확인하여 structure_score에 적극 반영하라.
-   - 🎯 **[설명 단위 평가]**: 문장의 유창함보다 발표 상황에 맞는 실질적인 설명 단위(서비스 기능, 창업 비전, 경력 사항, 마케팅 전략 등)가 풍부하게 담겼는지 채점하라. 단순 중복이나 장황하게 늘린 문장은 정보량으로 인정하지 않는다.
-   - 🎯 **[구어체 사담 포용 규칙]**: 발표 내용 중 일부 사담이나 구어체 섞인 표현(예: "밤을 새워서 졸리지만", "들리시나요" 등)이 포함되어 있더라도, 전체적인 흐름이 정보 전달 중심으로 전개된다면 지엽적인 표현에 얽매이지 말고 정상 발표로 판단하라.
-   - ⚠️ 단, 스크립트 대부분이 청중을 향한 정보 전달이 아닌 100% 일상 잡담, 혼잣말, 장난성 낙서 대화로만 가득 차 있다면 **발표 구조 전무 조항**을 적용하여 모든 항목 점수를 20점 미만으로 엄격히 제한하라.
+# 📊 채점 앵커 (Few-shot)
+- [완벽 구조 + 설명 단위 3개 이상 + 명확한 근거] → 구조:90 / 근거:85 / 표현:85
+- [오프닝 전개 우수 + 결론 미완성 + 설명 2개] → 구조:60 / 근거:55 / 표현:65
+- [문장은 자연스러우나 알맹이/설명이 전혀 없음] → 구조:50 / 근거:35 / 표현:60
+- [발표가 아닌 100% 일상 잡담, 장난성 입력] → 구조:15이하 / 근거:10이하 / 표현:15이하
 
-3. [⏱️ 진행형·중간 발표 및 상황 다양성 허용]
-   - 완성된 결과물 외에도 개발 중간 공유, 아이디어 피칭, 면접용 자기소개 발표 등을 모두 수용한다.
-   - 향후 계획이나 포부를 밝히는 문장도 구체적인 방향성이 있다면 훌륭한 결론 구조의 일부로 인정하라. 단, 구체적 실행 계획과 연결될 때만 가산점을 부여하라.
+# Evaluation Rubric (100점 만점 기준 정밀 채점)
+1. structure_score (가중치 40%): 오프닝(인사/소개) 및 도입->전개->결론 흐름의 명확성 (순수 잡담은 15점 이하)
+2. evidence_score (가중치 40%): 상황에 맞는 구체적인 설명 단위, 아이디어, 방법론의 설득력
+3. expression_score (가중치 20%): 주제에 적합한 어휘 구사력 및 질의응답력
 
-# 📊 루브릭 채점 앵커 (Few-shot 기준점)
-- [도입부(인사/주제)를 올바르게 시작 + 본문 설명 단위 3개 이상 + 명확한 흐름]
-  → structure_score: 90 / evidence_score: 85 / expression_score: 85 → content_score ≈ 87점
-
-- [인사와 오프닝은 훌륭하나 결론이 미완성 + 설명 단위 2개]
-  → structure_score: 60 / evidence_score: 55 / expression_score: 65 → content_score ≈ 59점
-
-- [문장은 자연스러우나 알맹이(기능 설명, 기획 등)가 전혀 없는 빈 발표]
-  → structure_score: 50 / evidence_score: 35 / expression_score: 60 → content_score ≈ 46점
-
-- [발표 형식이 아닌 100% 일상 잡담, 혼잣말, 장난성 입력]
-  → structure_score: 15 이하 / evidence_score: 10 이하 / expression_score: 15 이하 → content_score < 20점
-
-# Evaluation Rubric
-점수는 아래 3가지 항목을 각각 100점 만점으로 정밀 채점한다.
-
-1. structure_score (가중치 40%): 구조와 논리성
-   - 인사와 주제 선정을 통해 발표의 첫 시작을 올바르게 전개했는가? 도입 -> 전개 -> 결론의 흐름이 맥락상 존재하는가?
-   - 청중을 향한 발언이 아닌 사담/장난으로만 가득 찬 대본일 경우 이 점수는 15점 이하로 제한된다.
-
-2. evidence_score (가중치 40%): 타당성과 근거
-   - 발표 상황(팀플, 창업, 자기소개 등)에 맞는 구체적인 설명과 방법론, 아이디어가 설득력 있게 제시되었는가?
-
-3. expression_score (가중치 20%): 질의응답 및 표현
-   - 주제에 적합한 어휘와 표현을 구사했는가? (STT 오타는 정상 단어로 간주할 것)
-
-# 🧮 점수 산출 공식
-content_score = (structure_score × 0.4) + (evidence_score × 0.4) + (expression_score × 0.2)
+# 🗮 점수 산출 공식
+content_score = (structure_score * 0.4) + (evidence_score * 0.4) + (expression_score * 0.2)
 delivery_score = 0.0
 final_score = content_score
 
 # Instructions
 - 모든 응답은 한국어로 작성한다.
-- content_feedback: strength / weakness / improvement 각각 정확히 3가지씩 성실한 리스트 형태로 출력하라.
-- persona_questions: 선택된 심사위원(persona_type)별로 정확히 1개씩 질문을 생성하라.
+- content_feedback: strength, weakness, improvement 조항을 핵심만 '정확히 딱 3가지씩' 짧고 명확한 문장으로 리스트 출력하라. (장황하게 쓰지 말 것)
+- persona_questions: 선택된 심사위원(persona_type)별로 날카로운 질문을 '정확히 딱 1개씩만' 생성하라.
 """
 
 
 # ==========================================
-# 5. JSON 스키마 (실패율 최소화를 위해 strict: False 세팅)
+# 6. JSON 스키마 (strict: False 모드로 속도/성공률 극대화)
 # ==========================================
 JSON_SCHEMA = {
     "name": "presentation_feedback_schema",
@@ -225,7 +215,7 @@ JSON_SCHEMA = {
 
 
 # ==========================================
-# 6. 메인 분석 엔진 인터페이스
+# 7. 메인 분석 엔진 인터페이스
 # ==========================================
 async def get_ai_presentation_feedback(
     script: str,
@@ -278,10 +268,10 @@ async def get_ai_presentation_feedback(
 
         result = json.loads(content)
 
-        # 🛡️ 3차 후처리 안전 제어 및 코드 클램핑부
-        struct_s = result.get("structure_score", 0.0)
-        evid_s = result.get("evidence_score", 0.0)
-        expr_s = result.get("expression_score", 0.0)
+        # 🛡️ 3차 후처리 안전 제어 및 코드 클램핑부 (safe_float 완벽 바인딩)
+        struct_s = safe_float(result.get("structure_score", 0.0))
+        evid_s = safe_float(result.get("evidence_score", 0.0))
+        expr_s = safe_float(result.get("expression_score", 0.0))
 
         # 0.0~100.0 범위 강제 바인딩 (LLM 오버플로우 방어)
         struct_s = max(0.0, min(struct_s, 100.0))
@@ -290,12 +280,13 @@ async def get_ai_presentation_feedback(
 
         calc_content_score = (struct_s * 0.4) + (evid_s * 0.4) + (expr_s * 0.2)
 
-        # 🎯 [수정 세팅 반영]: 중복 피드백 방지 가드 장착 완료
+        # 불시의 환각 0점 폭주 방어 및 서머리 문구 중복 append 방지 가드
         if calc_content_score < 25.0:
             if struct_s > 20.0:
                 calc_content_score = 25.0
-                current_summary = result.get("summary", "")
-                # 요약 내부에 '25점'이라는 멘트가 이미 들어가 있는지 확인하여 중복 병합 원천 차단
+                current_summary = result.get("summary")
+                current_summary = str(current_summary) if current_summary is not None else ""
+                
                 if "25점" not in current_summary:
                     result["summary"] = current_summary + " (다만 구조적 완결성이 낮아 최소 발표 하한(25점)으로 보정되었습니다.)"
 
@@ -325,11 +316,17 @@ async def get_ai_presentation_feedback(
                 "strength": fallback_strength, "weakness": fallback_weakness, "improvement": fallback_improvement
             }
 
-        # 💡 페르소나 질문 싱크 필터
-        requested_personas = selected_personas if selected_personas else ["basic"]
+        # 💡 페르소나 질문 싱크 및 타입 오염 필터
+        # 🎯 [버그 패치 2 반영]: list(dict.fromkeys()) 기법으로 배열 입력 중복을 제거하여 중복 연산 및 뇌절 완벽 방어
+        requested_personas = list(dict.fromkeys(selected_personas)) if selected_personas else ["basic"]
+        
+        raw_questions = result.get("persona_questions", [])
+        if not isinstance(raw_questions, list):
+            raw_questions = []
+
         filtered_questions = []
         for p in requested_personas:
-            matched = next((q for q in result.get("persona_questions", []) if q.get("persona_type") == p), None)
+            matched = next((q for q in raw_questions if isinstance(q, dict) and q.get("persona_type") == p), None)
             if matched:
                 filtered_questions.append(matched)
             else:
