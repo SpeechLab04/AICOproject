@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Video,
@@ -33,28 +33,129 @@ function LivePage() {
       : [];
 
   const [isStarted, setIsStarted] = useState(false);
+  const wsRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const videoRef = useRef(null);
+  const recordedChunksRef = useRef([]);
   const [presentationEnded, setPresentationEnded] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [isAnswering, setIsAnswering] = useState(false);
 
   const currentQuestion = generatedQuestions[currentQuestionIndex];
 
-  const handlePresentationStart = () => {
-    setIsStarted(true);
-  };
+  const handlePresentationStart = async () => {
 
-  const handlePresentationEnd = () => {
-    setPresentationEnded(true);
-  };
+  setIsStarted(true);
+  recordedChunksRef.current = [];
+
+  try {
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+      video: true,
+    });
+
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream;
+    }
+
+    const ws = new WebSocket("ws://127.0.0.1:8000/ws/audio");
+
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+
+      console.log("WebSocket connected");
+
+      const mediaRecorder = new MediaRecorder(stream);
+
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = async (event) => {
+
+        if (event.data.size > 0) {
+
+          recordedChunksRef.current.push(event.data);
+
+          if (ws.readyState === 1) {
+
+            const arrayBuffer = await event.data.arrayBuffer();
+
+            ws.send(arrayBuffer);
+
+            console.log("audio sent");
+          }
+        }
+      };
+
+      mediaRecorder.start(1000);
+    };
+
+  } catch (error) {
+
+    console.error(error);
+  }
+};
+
+const handlePresentationEnd = () => {
+
+  setPresentationEnded(true);
+  //console.log("recording stopped");
+};
 
   const handleNextQuestion = () => {
     if (currentQuestionIndex < generatedQuestions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
       setIsAnswering(false);
-    } else {
-      navigate("/dashboard");
     }
-  };
+    else {
+
+      if (mediaRecorderRef.current) {
+        mediaRecorderRef.current.stop();
+      }
+
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+
+      const blob = new Blob(recordedChunksRef.current, {
+        type: "video/webm",
+      });
+
+      console.log(blob);
+      const formData = new FormData();
+
+      formData.append(
+        "file",
+        blob,
+        "realtime_presentation.webm"
+      );
+
+      const token = localStorage.getItem("token");
+      fetch("http://127.0.0.1:8000/upload", {
+        method: "POST",
+        
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+
+        body: formData,
+      })
+      .then((res) => res.json())
+      .then((data) => {
+
+        console.log(data);
+        navigate("/dashboard");
+      })
+      .catch((err) => {
+        console.error(err);
+      });
+        } 
+    };
+  /*1. 녹화 종료
+2. websocket 종료
+3. 영상 파일 생성
+4. dashboard 이동 */
 
   const handleSkip = () => {
     handleNextQuestion();
@@ -136,23 +237,22 @@ function LivePage() {
               style={{
                 height: isMobile ? "260px" : "430px",
                 borderRadius: "28px",
-                background: "#E5F4EF",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexDirection: "column",
-                gap: "16px",
-                color: "#6BB5A6",
+                background: "#000",
+                overflow: "hidden",
                 marginBottom: "24px",
-              }}
+               }}
             >
-              <Video size={68} />
-
-              <strong style={{ fontSize: "20px" }}>
-                {isStarted
-                  ? "실시간 발표 진행 중"
-                  : "카메라 연결 대기 중"}
-              </strong>
+              <video
+                ref={videoRef}
+                autoPlay
+                muted
+                playsInline
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                }}
+              />
             </div>
 
             {!isStarted ? (

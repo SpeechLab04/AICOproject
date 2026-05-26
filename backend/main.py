@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 from dotenv import load_dotenv
 import traceback
+from backend.realtime_mode.websocket import router as realtime_router
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATABASE_DIR = BASE_DIR / "database"
@@ -33,6 +34,8 @@ from vision_service import analyze_vision
 
 
 app = FastAPI(title="AICO API")
+
+app.include_router(realtime_router)
 
 models.Base.metadata.create_all(bind=database.engine)
 
