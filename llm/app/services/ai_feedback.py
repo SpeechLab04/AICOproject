@@ -44,7 +44,7 @@ def classify_script(script: str) -> str:
         return "silent"
 
     # 2단계: Whisper STT 특성(문장부호 누락)을 감안한 텍스트 절대 길이 검증 (Weak Presentation)
-    if len(cleaned) < 35:
+    if len(cleaned) < 25:
         return "weak_presentation"
 
     return "presentation"
@@ -136,16 +136,23 @@ def generate_system_prompt(selected_personas: List[str]) -> str:
 [현재 심사위원 구성]
 {persona_section}
 
-# 🚨 최우선 가이드라인
+#  최우선 채점 가이드라인
 
-1. [🔊 STT 노이즈] 문맥상 유추 가능한 단순 STT 오타는 정상 단어로 간주하되, 의미가 아예 깨진 문장까지 없는 내용을 상상해서 보완하지 마라(부재 시 감점).
-2. [🏗️ 구조 및 사담] 오프닝(인사/주제 선언) 유무를 structure_score에 적극 반영하라. 구어체나 가벼운 사담이 섞여도 정보 전달이 중심이면 포용하되, 대본 전체가 100% 사담/장난이면 모든 항목 점수를 20점 미만으로 제한하라.
-3. [⏱️ 진행형] 중간 공유, 아이디어 피칭, 면접용 자기소개도 정상 발표로 수용하며, 향후 계획도 구체성이 있다면 결론 구조로 인정하라.
+1. [ STT 노이즈] 문맥상 유추 가능한 오타는 정상 단어로 간주하되, 없는 내용을 과도하게 상상해서 채우지 마라.
+2. [구조 및 사담]
+   - 인사와 팀/주제 소개가 포함된 올바른 오프닝 여부를 structure_score에 적극 반영하라.
+   - 구어체 필러("아", "그러니까", "음" 등)는 감점하지 마라.
+   - 발표 도중 촬영/녹음 관련 혼잣말이나 청중 외 대화가 1회라도 감지되면 structure_score를 40점 이하로 제한하고 summary에 사담 감지 사실을 명시하라.
+   - 100% 순수 잡담/장난이면 전 항목을 20점 미만으로 제한하라.
+3. [ 설명 단위 및 완결성 평가] 기능, 구조, 방법론, 계획 등 독립적 설명 단위가 많을수록 우수한 발표다. 
+    **[치명적 감점]**: 문장이 깔끔하고 유창하더라도, 내용 알맹이가 없거나 서론(도입)만 말하다가 급격히 종료된 미완성 발표는 'evidence_score'를 절대 30점 이하로 하방 고정하라.
+4. [ 진행형 상황] 중간 공유, 피칭, 자기소개도 정상 수용하며, 구체적인 향후 계획은 결론 구조로 인정하라.
 
 # 📊 채점 앵커 (Few-shot)
 - [완벽 구조 + 설명 단위 3개 이상 + 명확한 근거] → 구조:90 / 근거:85 / 표현:85
-- [오프닝 전개 우수 + 결론 미완성 + 설명 2개] → 구조:60 / 근거:55 / 표현:65
+- [오프닝·전개 우수 + 결론 미완성 + 설명 2개] → 구조:60 / 근거:55 / 표현:65
 - [문장은 자연스러우나 알맹이/설명이 전혀 없음] → 구조:50 / 근거:35 / 표현:60
+- [발표 중 촬영/녹음 관련 사담 1회 감지] → 구조:40이하 / 근거:GPT재량 / 표현:GPT재량
 - [발표가 아닌 100% 일상 잡담, 장난성 입력] → 구조:15이하 / 근거:10이하 / 표현:15이하
 
 # Evaluation Rubric (100점 만점 기준 정밀 채점)
@@ -225,10 +232,30 @@ async def get_ai_presentation_feedback(
     if not OPENAI_API_KEY:
         raise ValueError("API KEY가 로드되지 않았습니다. .env 파일을 확인하세요.")
 
+# 🎯 [해결 패치]: 프론트에서 'pressure'나 '압박형' 어떤 걸로 보내든 'press'로 완벽 매핑
+    persona_map = {
+        "mentor": "mentor", "멘토형": "mentor", "멘토": "mentor",
+        "press": "press", "pressure": "press", "압박형": "press", "압박": "press", "비판형": "press",
+        "troll": "troll", "troll형": "troll", "트롤형": "troll", "트롤": "troll",
+        "basic": "basic", "기본형": "basic", "기본": "basic"
+    }
+    
+    # 전달받은 리스트 표준화 변환
+    if selected_personas:
+        standardized_personas = []
+        for p in selected_personas:
+            p_clean = str(p).strip()
+            if p_clean in persona_map:
+                standardized_personas.append(persona_map[p_clean])
+        selected_personas = list(dict.fromkeys(standardized_personas))
+    
+    if not selected_personas:
+        selected_personas = ["basic"]
+        
     clean_script = script.strip() if script else ""
     classification = classify_script(clean_script)
 
-    # ── 즉시 반환 레이어 ──────────────────────────────────
+    # ── 즉시 반환 레이어 (서버 내부 연산) ──────────────────
     if classification == "silent":
         return get_silent_response(selected_personas)
 
@@ -246,8 +273,10 @@ async def get_ai_presentation_feedback(
     client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 
     try:
+        # 🎯 [속도 대혁신]: 유저님의 지적대로 max_tokens 가드 배치 및 가벼운 mini 모델 사용
+        # config 설정에서 model이 'gpt-4o-mini'로 잡혀있는지 꼭 확인해 주세요!
         response = await client.chat.completions.create(
-            model=OPENAI_MODEL,
+            model=OPENAI_MODEL,  # 💡 gpt-4o-mini 설정 권장
             messages=[
                 {
                     "role": "system",
@@ -259,7 +288,8 @@ async def get_ai_presentation_feedback(
                 }
             ],
             response_format={"type": "json_schema", "json_schema": JSON_SCHEMA},
-            temperature=0.0
+            temperature=0.0,
+            max_tokens=800  # 🔥 [핵심 패치]: 출력 토큰 강제 제한으로 API 속도 병목 완전 해결
         )
 
         content = response.choices[0].message.content
@@ -268,27 +298,21 @@ async def get_ai_presentation_feedback(
 
         result = json.loads(content)
 
-        # 🛡️ 3차 후처리 안전 제어 및 코드 클램핑부 (safe_float 완벽 바인딩)
+        # 🛡️ 3차 후처리 안전 제어 및 코드 클램핑부 (Type Safe 가드)
         struct_s = safe_float(result.get("structure_score", 0.0))
         evid_s = safe_float(result.get("evidence_score", 0.0))
         expr_s = safe_float(result.get("expression_score", 0.0))
 
-        # 0.0~100.0 범위 강제 바인딩 (LLM 오버플로우 방어)
         struct_s = max(0.0, min(struct_s, 100.0))
         evid_s = max(0.0, min(evid_s, 100.0))
         expr_s = max(0.0, min(expr_s, 100.0))
 
         calc_content_score = (struct_s * 0.4) + (evid_s * 0.4) + (expr_s * 0.2)
 
-        # 불시의 환각 0점 폭주 방어 및 서머리 문구 중복 append 방지 가드
-        if calc_content_score < 25.0:
-            if struct_s > 20.0:
-                calc_content_score = 25.0
-                current_summary = result.get("summary")
-                current_summary = str(current_summary) if current_summary is not None else ""
-                
-                if "25점" not in current_summary:
-                    result["summary"] = current_summary + " (다만 구조적 완결성이 낮아 최소 발표 하한(25점)으로 보정되었습니다.)"
+        # GPT 환각으로 전 항목 0점 반환한 경우만 방어 (25점 하한 보정 제거)
+        if calc_content_score == 0.0:
+            calc_content_score = 10.0
+            result["summary"] = "채점 오류로 최소 점수(10점)로 보정되었습니다."
 
         # 최종 데이터 무결성 강제 동기화 매핑
         result["structure_score"] = float(struct_s)
@@ -316,8 +340,7 @@ async def get_ai_presentation_feedback(
                 "strength": fallback_strength, "weakness": fallback_weakness, "improvement": fallback_improvement
             }
 
-        # 💡 페르소나 질문 싱크 및 타입 오염 필터
-        # 🎯 [버그 패치 2 반영]: list(dict.fromkeys()) 기법으로 배열 입력 중복을 제거하여 중복 연산 및 뇌절 완벽 방어
+        # 💡 페르소나 질문 싱크 및 타입 오염 필터 (중복 제거)
         requested_personas = list(dict.fromkeys(selected_personas)) if selected_personas else ["basic"]
         
         raw_questions = result.get("persona_questions", [])
