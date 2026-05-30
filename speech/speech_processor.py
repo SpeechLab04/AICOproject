@@ -6,6 +6,7 @@ import shutil
 import uuid
 import librosa
 import numpy as np
+import subprocess
 
 from fastapi import UploadFile, BackgroundTasks
 from moviepy import VideoFileClip
@@ -398,22 +399,26 @@ def process_voice_analysis(
         with open(video_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        video = VideoFileClip(video_path)
+        print("1. 파일 저장 완료")
 
-        print("video loaded")
-        print("audio =", video.audio)
-        print("save path =", audio_temp_path)
-
-        video.audio.write_audiofile(
-            audio_temp_path
-            #bitrate="64k",
-            #logger=None
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-i",
+                video_path,
+                "-vn",
+                "-acodec",
+                "mp3",
+                audio_temp_path,
+                "-y",
+            ],
+            check=True
         )
 
-        duration_sec = video.duration
+        print("2. ffmpeg 음성 추출 성공")
 
-        video.close()
-
+        duration_sec = 0
+        
         with open(audio_temp_path, "rb") as audio_file:
 
             transcript = client.audio.transcriptions.create(

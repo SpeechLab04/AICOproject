@@ -16,21 +16,7 @@ function LivePage() {
   const audiences =
     JSON.parse(localStorage.getItem("selectedAudiences")) || [];
 
-  const generatedQuestions =
-    audiences.length > 0
-      ? audiences.map((audience, idx) => ({
-          id: idx + 1,
-          audience: audience.name,
-          question:
-            idx === 0
-              ? "이 발표 주제를 선택한 이유는 무엇인가요?"
-              : idx === 1
-              ? "AICO 서비스의 가장 큰 차별점은 무엇인가요?"
-              : idx === 2
-              ? "실제 사용자에게 어떤 도움이 될 수 있나요?"
-              : "이 서비스를 어떻게 발전시킬 계획인가요?",
-        }))
-      : [];
+  const [generatedQuestions, setGeneratedQuestions] = useState([]);
 
   const [isStarted, setIsStarted] = useState(false);
   const wsRef = useRef(null);
@@ -97,11 +83,46 @@ function LivePage() {
   }
 };
 
-const handlePresentationEnd = () => {
+  const handlePresentationEnd = async () => {
 
-  setPresentationEnded(true);
-  //console.log("recording stopped");
-};
+    try {
+
+      const audiences =
+        JSON.parse(
+          localStorage.getItem("selectedAudiences")
+        ) || [];
+
+      const selectedPersonas =
+        audiences.map(a => a.id);
+
+      const response = await fetch(
+        "http://127.0.0.1:8000/realtime/generate-questions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            selected_personas: selectedPersonas,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      console.log("질문 생성 결과 =", data);
+
+      setGeneratedQuestions(data.questions);
+
+      setPresentationEnded(true);
+
+    } catch (err) {
+
+      console.error(err);
+    }
+  };
+
+
 
   const handleNextQuestion = () => {
     if (currentQuestionIndex < generatedQuestions.length - 1) {
@@ -128,7 +149,7 @@ const handlePresentationEnd = () => {
       formData.append(
         "file",
         blob,
-        "realtime_presentation.webm"
+        "realtime_presentation.mp4"
       );
 
     const token = localStorage.getItem("token");
@@ -138,17 +159,21 @@ const handlePresentationEnd = () => {
 
     fetch("http://127.0.0.1:8000/upload", {
       method: "POST",
-
       headers: {
         Authorization: `Bearer ${token}`,
       },
-
       body: formData,
     })
     .then((res) => res.json())
     .then((data) => {
 
-      console.log(data);
+      console.log("UPLOAD RESULT =", data);
+
+      localStorage.setItem(
+        "analysisResult",
+        JSON.stringify(data)
+      );
+
       navigate("/dashboard");
     })
     .catch((err) => {
@@ -464,7 +489,9 @@ const handlePresentationEnd = () => {
                     onClick={handleNextQuestion}
                     style={subButtonStyle}
                   >
-                    다음 질문
+                    {currentQuestionIndex === generatedQuestions.length - 1
+                      ? "질의응답 종료"
+                      : "다음 질문"}
                   </button>
                 </div>
               </>
