@@ -87,6 +87,14 @@ function LivePage() {
 
     try {
 
+      if (mediaRecorderRef.current) {
+        mediaRecorderRef.current.stop();
+      }
+
+      await new Promise(resolve =>
+        setTimeout(resolve, 1000)
+      );
+
       const audiences =
         JSON.parse(
           localStorage.getItem("selectedAudiences")
@@ -95,16 +103,31 @@ function LivePage() {
       const selectedPersonas =
         audiences.map(a => a.id);
 
+      const blob = new Blob(
+        recordedChunksRef.current,
+        {
+          type: "video/webm",
+        }
+      );
+
+      const formData = new FormData();
+
+      formData.append(
+        "file",
+        blob,
+        "realtime_presentation.webm"
+      );
+
+      formData.append(
+        "selected_personas",
+        JSON.stringify(selectedPersonas)
+      );
+
       const response = await fetch(
         "http://127.0.0.1:8000/realtime/generate-questions",
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            selected_personas: selectedPersonas,
-          }),
+          body: formData,
         }
       );
 
@@ -156,6 +179,8 @@ function LivePage() {
 
     console.log("TOKEN =", token);
     console.log("Authorization =", `Bearer ${token}`);
+
+    console.log("UPLOAD TOKEN =", token);
 
     fetch("http://127.0.0.1:8000/upload", {
       method: "POST",
