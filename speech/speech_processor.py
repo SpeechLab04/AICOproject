@@ -400,10 +400,14 @@ def process_voice_analysis(
 
         video = VideoFileClip(video_path)
 
+        print("video loaded")
+        print("audio =", video.audio)
+        print("save path =", audio_temp_path)
+
         video.audio.write_audiofile(
-            audio_temp_path,
-            bitrate="64k",
-            logger=None
+            audio_temp_path
+            #bitrate="64k",
+            #logger=None
         )
 
         duration_sec = video.duration
