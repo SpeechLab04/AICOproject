@@ -131,27 +131,31 @@ const handlePresentationEnd = () => {
         "realtime_presentation.webm"
       );
 
-      const token = localStorage.getItem("token");
-      fetch("http://127.0.0.1:8000/upload", {
-        method: "POST",
-        
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+    const token = localStorage.getItem("token");
 
-        body: formData,
-      })
-      .then((res) => res.json())
-      .then((data) => {
+    console.log("TOKEN =", token);
+    console.log("Authorization =", `Bearer ${token}`);
 
-        console.log(data);
-        navigate("/dashboard");
-      })
-      .catch((err) => {
-        console.error(err);
-      });
-        } 
-    };
+    fetch("http://127.0.0.1:8000/upload", {
+      method: "POST",
+
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+
+      body: formData,
+    })
+    .then((res) => res.json())
+    .then((data) => {
+
+      console.log(data);
+      navigate("/dashboard");
+    })
+    .catch((err) => {
+      console.error(err);
+    });
+      }
+  };
   /*1. 녹화 종료
 2. websocket 종료
 3. 영상 파일 생성
