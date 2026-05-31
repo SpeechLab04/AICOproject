@@ -8,7 +8,6 @@ import json
 from pathlib import Path
 from dotenv import load_dotenv
 import traceback
-from backend.realtime_mode.websocket import router as realtime_router
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATABASE_DIR = BASE_DIR / "database"
@@ -23,6 +22,8 @@ if str(DATABASE_DIR) not in sys.path:
     sys.path.append(str(DATABASE_DIR))
 
 load_dotenv(dotenv_path=BASE_DIR / ".env")
+
+from realtime_mode.websocket import router as realtime_router
 
 import database
 import models
