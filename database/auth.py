@@ -22,7 +22,7 @@ load_dotenv(os.path.join(parent_dir, ".env"))
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"                
-ACCESS_TOKEN_EXPIRE_MINUTES = 30 
+ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 if not SECRET_KEY:
     raise RuntimeError("🚨 [보안 경고] SECRET_KEY 환경변수가 설정되지 않았습니다. .env 파일을 확인해 주세요.")
