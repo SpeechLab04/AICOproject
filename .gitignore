@@ -6,7 +6,7 @@ backend/uploads/
 .env
 uploads/
 temp_audio.mp3 # 변환용 임시 파일
-
+*.db #기록파일 충돌방지 및 버전관리
 # 가상환경
 .venv/
 .venv311/

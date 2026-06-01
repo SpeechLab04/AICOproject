@@ -23,16 +23,34 @@ class AnalyzeRequest(BaseModel):
     text_input: str
     user_nickname: str = "Guest User"
     selected_personas: List[str] = Field(default_factory=lambda: ["basic"])
-
+    
+    # 대시보드 생성 파트에서 넘겨줄 영상 주소와 연습 횟수 규격을 열어줍니다.
+    video_url: Optional[str] = None
+    practice_count: Optional[int] = None
+    
 class AnalyzeResponse(BaseModel):
     status: str
     record_id: int
     feedback: str
     analysis_summary: Dict[str, Any]
 
+class TitleUpdateRequest(BaseModel):
+    title: str = Field(..., max_length=100, description="변경할 새로운 발표 기록 제목")
+
+class TitleUpdateResponse(BaseModel):
+    status: str
+    message: str
+    record_id: int
+    updated_title: str
+    
 class RecordResponse(BaseModel):
     id: int
     user_nickname: str
+    title: Optional[str] = None
+    #  조회할 때도 영상 주소와 연습 횟수가 대시보드에 같이 나오도록 추가합니다.
+    video_url: Optional[str] = None
+    practice_count: Optional[int] = None
+    
     summary: Optional[str] = None
     persona_questions: Any = Field(default_factory=list)
     strength: Optional[Any] = None
@@ -47,7 +65,7 @@ class RecordResponse(BaseModel):
     visual_analysis: Optional[Dict[str, Any]] = None
 
     model_config = ConfigDict(from_attributes=True)
-
+    
 class DeleteResponse(BaseModel):
     status: str
     message: str

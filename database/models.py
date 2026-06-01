@@ -32,18 +32,18 @@ class UserModel(Base):
     records = relationship("PresentationRecord", back_populates="owner", cascade="all, delete-orphan")
 
 class PresentationRecord(Base):
-    # 📊 데이터베이스에 'presentation_records'(발표 기록들)라는 이름의 테이블을 만들어요.
     __tablename__ = "presentation_records"
 
     id = Column(Integer, primary_key=True, index=True)
-    
-    # 🔗 [보안 업그레이드!] 예전에는 그냥 'Guest User' 같은 이름표를 붙였지만, 
-    # 이제는 방금 위에서 만든 'users' 서랍의 고유 번호(id)를 훔쳐와서 외래키(ForeignKey)로 딱 박아버립니다. 
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
-    
-    # 🔗 유저 서랍과 발표 기록 서랍 사이에 양방향 비밀 통로를 열어둡니다.
     owner = relationship("UserModel", back_populates="records")
 
+    # 기본값은 우선 빈칸으로 두고, 저장할 때 '발표연습#번호'가 들어가도록 main.py에서 가공
+    title = Column(String, nullable=True)
+    #  넘어오는 대시보드 그대로 받아 적을 칸을 만들어줍니다.
+    video_url = Column(String, nullable=True)         # 영상 주소 칸
+    practice_count = Column(Integer, nullable=True)   # 넘어온 연습 횟수 그대로 저장할 칸
+    
     # --- 아래는 기존에 만들었던 발표 결과 데이터 칸들이에요 ---
     user_nickname = Column(String, default="Guest User")
     summary = Column(Text)
