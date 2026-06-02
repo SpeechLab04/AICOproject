@@ -9,7 +9,7 @@ const PAGE_SIZE = 10;
 function RecordsPage() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-  const API_BASE_URL = "http://127.0.0.1:8000";
+  const API_BASE_URL = import.meta.env.VITE_API_URL;
 
   const [records, setRecords] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
