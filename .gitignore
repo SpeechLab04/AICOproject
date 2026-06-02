@@ -1,3 +1,6 @@
+# AWS 키 파일
+*.pem
+
 backend/uploads/
 *.mp4
 *.mov
