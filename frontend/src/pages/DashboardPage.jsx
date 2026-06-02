@@ -30,7 +30,7 @@ function DashboardPage() {
   const audiences = JSON.parse(localStorage.getItem("selectedAudiences")) || [];
   const uploadedVideoUrl = analysisResult?.video_url || localStorage.getItem("uploadedVideoUrl");
 
-  const totalScore = Math.round(Number(analysisResult?.total_score || 83));
+  const totalScore = analysisResult?.total_score !== undefined ? Math.round(Number(analysisResult.total_score)) : 83;
 
   const postureScore = analysisResult?.posture?.score || 0;
   const postureFeedback = analysisResult?.posture?.feedback || "발표 자세 분석 결과입니다.";
@@ -99,7 +99,7 @@ function DashboardPage() {
   const voiceScript = analysisResult?.script?.full_script || "";
   const voiceSegments = voiceData.segments || [];
 
-  const contentScore = analysisResult?.script?.score || 83;
+  const contentScore = analysisResult?.script?.score !== undefined ? analysisResult.script.score : 83;
   const scriptSummary = analysisResult?.script?.summary || "발표 내용 요약 결과입니다.";
   const scriptText = analysisResult?.script?.full_script || "스크립트 결과가 없습니다.";
   const generalQuestions = analysisResult?.script?.general_questions || [];

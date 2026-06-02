@@ -257,8 +257,10 @@ def analyze_vision(video_path, situation="academic", rotate_mode="auto"):
             "suggestion": "영상을 열 수 없습니다. 파일 경로를 확인해 주세요.",
         }
 
-    fps            = cap.get(cv2.CAP_PROP_FPS)
-    frame_interval = max(1, int(fps // 2))  # 2fps 샘플링 (1fps → 놓침 방지)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    if fps <= 0 or fps > 120:
+        fps = 30  # webm 등 fps 오보고 방지
+    frame_interval = max(1, int(fps))  # 1fps 샘플링
 
     # ── 카메라 가이드 누산 ──
     guide_face_ratios = []
@@ -348,8 +350,8 @@ def analyze_vision(video_path, situation="academic", rotate_mode="auto"):
                         # Phase 1 최댓값 기반 → 처음부터 고개 숙이고 찍어도 올바른 기준 유지
                         # 최솟값 0.60 보장 → 매우 낮은 카메라 등 극단적 상황 대비
                         baseline_y      = max(max(guide_y_ratios), 0.60)
-                        dyn_down_thresh = baseline_y - 0.05   # 고개 숙임 = y_ratio 감소
-                        dyn_up_thresh   = baseline_y + 0.07   # 고개 젖힘 = y_ratio 증가
+                        dyn_down_thresh = baseline_y - 0.13   # 고개 숙임 = y_ratio 감소 (카메라 각도 오차 고려해 여유 확대)
+                        dyn_up_thresh   = baseline_y + 0.10   # 고개 젖힘 = y_ratio 증가
                         print(f"[디버깅] baseline_y={round(baseline_y,3)}, down_thresh={round(dyn_down_thresh,3)}, up_thresh={round(dyn_up_thresh,3)}")
                     guide_result = _compute_guide(guide_face_ratios, guide_hand_count, guide_total)
                     print(f"거리 판정: {guide_result['distance']} / 안내: {guide_result['suggestion']}")

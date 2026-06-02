@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Video,
@@ -16,35 +16,338 @@ function LivePage() {
   const audiences =
     JSON.parse(localStorage.getItem("selectedAudiences")) || [];
 
-  const generatedQuestions =
-    audiences.length > 0
-      ? audiences.map((audience, idx) => ({
-          id: idx + 1,
-          audience: audience.name,
-          question:
-            idx === 0
-              ? "이 발표 주제를 선택한 이유는 무엇인가요?"
-              : idx === 1
-              ? "AICO 서비스의 가장 큰 차별점은 무엇인가요?"
-              : idx === 2
-              ? "실제 사용자에게 어떤 도움이 될 수 있나요?"
-              : "이 서비스를 어떻게 발전시킬 계획인가요?",
-        }))
-      : [];
+  const [generatedQuestions, setGeneratedQuestions] = useState([]);
 
   const [isStarted, setIsStarted] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [canStart, setCanStart] = useState(false);
+  const [cameraStatus, setCameraStatus] = useState("카메라를 준비 중입니다...");
+  const [isWaiting, setIsWaiting] = useState(false);
+  const [countdown, setCountdown] = useState(null);
+  const [isSelectingTime, setIsSelectingTime] = useState(false);
+  const [selectedTime, setSelectedTime] = useState(null);
+  const [remainingTime, setRemainingTime] = useState(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const wsRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const recordedChunksRef = useRef([]);
+  const cameraContainerRef = useRef(null);
   const [presentationEnded, setPresentationEnded] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [isAnswering, setIsAnswering] = useState(false);
 
   const currentQuestion = generatedQuestions[currentQuestionIndex];
 
-  const handlePresentationStart = () => {
-    setIsStarted(true);
+  // 페이지 진입 시 이전 분석 결과 초기화
+  useEffect(() => {
+    localStorage.removeItem("analysisResult");
+    localStorage.removeItem("uploadedVideoUrl");
+  }, []);
+
+  // 전체화면 상태 감지
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
+  // 전체화면 상태 감지
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
+  // 페이지 진입 시 카메라 미리보기 시작
+  useEffect(() => {
+    const startPreview = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: true,
+        });
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      } catch (error) {
+        console.error("카메라 접근 오류:", error);
+      }
+    };
+    startPreview();
+
+    // 페이지 벗어날 때 카메라 종료
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, []);
+
+  // 발표 시작 전: 1.5초마다 카메라 프레임 체크
+  useEffect(() => {
+    if (isStarted) return;
+
+    const checkCamera = async () => {
+      if (!videoRef.current || !streamRef.current) return;
+      if (videoRef.current.videoWidth === 0) return;
+
+      const canvas = document.createElement("canvas");
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      const ctx = canvas.getContext("2d");
+      ctx.scale(-1, 1);
+      ctx.drawImage(videoRef.current, -canvas.width, 0);
+
+      canvas.toBlob(async (blob) => {
+        if (!blob) return;
+        const formData = new FormData();
+        formData.append("file", blob, "frame.jpg");
+        try {
+          const res = await fetch("http://127.0.0.1:8000/check-camera", {
+            method: "POST",
+            body: formData,
+          });
+          const data = await res.json();
+          setCanStart(data.is_valid);
+          setCameraStatus(data.suggestion);
+        } catch (e) {
+          console.error("카메라 체크 오류:", e);
+        }
+      }, "image/jpeg", 0.7);
+    };
+
+    const interval = setInterval(checkCamera, 1500);
+    return () => clearInterval(interval);
+  }, [isStarted]);
+
+  // 대기 중일 때 canStart 변화에 따라 카운트다운 시작/초기화
+  useEffect(() => {
+    if (!isWaiting) return;
+    if (canStart) {
+      if (countdown === null) setCountdown(3);
+    } else {
+      setCountdown(null); // 박스 벗어나면 리셋
+    }
+  }, [canStart, isWaiting]);
+
+  // 3-2-1 카운트다운 타이머
+  useEffect(() => {
+    if (countdown === null) return;
+    if (countdown === 0) {
+      startRecording();
+      return;
+    }
+    const timer = setTimeout(() => setCountdown(c => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [countdown]);
+
+  // 발표 진행 중 남은 시간 타이머
+  useEffect(() => {
+    if (!isStarted || remainingTime === null || presentationEnded) return;
+    if (remainingTime === 0) {
+      handlePresentationEnd();
+      return;
+    }
+    const timer = setTimeout(() => setRemainingTime(t => t - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [isStarted, remainingTime, presentationEnded]);
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
   };
 
-  const handlePresentationEnd = () => {
-    setPresentationEnded(true);
+  // 발표 시작하기 버튼 → 시간 선택 화면
+  const handlePresentationStart = () => {
+    setIsSelectingTime(true);
+  };
+
+  // 시간 선택 후 → 대기 모드 진입
+  const handleTimeSelect = (minutes) => {
+    setSelectedTime(minutes);
+    setIsSelectingTime(false);
+    setIsWaiting(true);
+    // 클릭 직후 전체화면 요청 (브라우저 보안: 직접 클릭 시에만 가능)
+    if (cameraContainerRef.current?.requestFullscreen) {
+      cameraContainerRef.current.requestFullscreen().catch(err => console.error(err));
+    }
+  };
+
+  // 카운트다운 0 되면 실제 녹화 시작
+  const startRecording = () => {
+    setIsStarted(true);
+    setIsWaiting(false);
+    setCountdown(null);
+    setRemainingTime(selectedTime * 60);
+    recordedChunksRef.current = [];
+
+    const stream = streamRef.current;
+    if (!stream) return;
+
+    const ws = new WebSocket("ws://127.0.0.1:8000/ws/audio");
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      console.log("WebSocket connected");
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = async (event) => {
+        if (event.data.size > 0) {
+          recordedChunksRef.current.push(event.data);
+          if (ws.readyState === 1) {
+            const arrayBuffer = await event.data.arrayBuffer();
+            ws.send(arrayBuffer);
+            console.log("audio sent");
+          }
+        }
+      };
+      mediaRecorder.start(1000);
+    };
+  };
+
+  const handlePresentationEnd = async () => {
+
+    // 전체화면 종료
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(err => console.error(err));
+    }
+
+    stopCamera();
+    setIsAnalyzing(true);
+
+    try {
+
+      if (mediaRecorderRef.current) {
+        mediaRecorderRef.current.stop();
+      }
+
+      await new Promise(resolve =>
+        setTimeout(resolve, 1000)
+      );
+
+      const audiences =
+        JSON.parse(
+          localStorage.getItem("selectedAudiences")
+        ) || [];
+
+      const selectedPersonas =
+        audiences.map(a => a.id);
+
+      const blob = new Blob(
+        recordedChunksRef.current,
+        {
+          type: "video/webm",
+        }
+      );
+
+      const formData = new FormData();
+
+      formData.append(
+        "file",
+        blob,
+        "realtime_presentation.webm"
+      );
+
+      formData.append(
+        "selected_personas",
+        JSON.stringify(selectedPersonas)
+      );
+
+      const response = await fetch(
+        "http://127.0.0.1:8000/realtime/generate-questions",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const data = await response.json();
+
+      console.log("질문 생성 결과 =", data);
+
+      setGeneratedQuestions(data.questions);
+      setIsAnalyzing(false);
+      setPresentationEnded(true);
+      stopCamera();
+
+    } catch (err) {
+
+      console.error(err);
+    }
+  };
+
+
+
+  const uploadAndNavigate = () => {
+    setRemainingTime(null); // 타이머 중지
+
+    try {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        mediaRecorderRef.current.stop();
+      }
+    } catch (e) { /* 이미 멈춘 경우 무시 */ }
+
+    try {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.close();
+      }
+    } catch (e) { /* 이미 닫힌 경우 무시 */ }
+
+    setIsUploading(true);
+
+    const blob = new Blob(recordedChunksRef.current, {
+      type: "video/webm",
+    });
+
+    const formData = new FormData();
+    formData.append("file", blob, "realtime_presentation.webm");
+
+    const token = localStorage.getItem("token");
+
+    fetch("http://127.0.0.1:8000/upload", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    })
+    .then((res) => {
+      if (res.status === 401) {
+        alert("로그인이 만료되었습니다. 다시 로그인해주세요.");
+        localStorage.removeItem("token");
+        localStorage.removeItem("aicoUser");
+        stopCamera();
+        navigate("/login");
+        return null;
+      }
+      return res.json();
+    })
+    .then((data) => {
+      if (!data) return;
+      console.log("UPLOAD RESULT =", data);
+      localStorage.setItem("analysisResult", JSON.stringify(data));
+      stopCamera();
+      navigate("/dashboard");
+    })
+    .catch((err) => {
+      console.error(err);
+      alert("분석 중 오류가 발생했습니다. 다시 시도해주세요.");
+      setIsUploading(false);
+    });
   };
 
   const handleNextQuestion = () => {
@@ -52,12 +355,13 @@ function LivePage() {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
       setIsAnswering(false);
     } else {
-      navigate("/dashboard");
+      uploadAndNavigate();
     }
   };
 
+  // 건너뛰기: 바로 결과로 이동
   const handleSkip = () => {
-    handleNextQuestion();
+    uploadAndNavigate();
   };
 
   return (
@@ -133,35 +437,202 @@ function LivePage() {
             }}
           >
             <div
+              ref={cameraContainerRef}
               style={{
                 height: isMobile ? "260px" : "430px",
                 borderRadius: "28px",
-                background: "#E5F4EF",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexDirection: "column",
-                gap: "16px",
-                color: "#6BB5A6",
+                background: "#000",
+                overflow: "hidden",
                 marginBottom: "24px",
-              }}
+                position: "relative",
+               }}
             >
-              <Video size={68} />
+              <video
+                ref={videoRef}
+                autoPlay
+                muted
+                playsInline
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: isFullscreen ? "contain" : "cover",
+                  transform: "scaleX(-1)",
+                  background: "#000",
+                }}
+              />
 
-              <strong style={{ fontSize: "20px" }}>
-                {isStarted
-                  ? "실시간 발표 진행 중"
-                  : "카메라 연결 대기 중"}
-              </strong>
+              {/* 발표 중 타이머 */}
+              {isStarted && remainingTime !== null && (
+                <div style={{
+                  position: "absolute",
+                  top: "12px",
+                  right: "12px",
+                  background: remainingTime <= 30 ? "rgba(229,115,115,0.9)" : "rgba(0,0,0,0.55)",
+                  color: "white",
+                  padding: "4px 12px",
+                  borderRadius: "999px",
+                  fontSize: "14px",
+                  fontWeight: "800",
+                  pointerEvents: "none",
+                }}>
+                  {String(Math.floor(remainingTime / 60)).padStart(2, "0")}:{String(remainingTime % 60).padStart(2, "0")}
+                </div>
+              )}
+
+              {/* 전체화면 중 발표 종료 버튼 */}
+              {isStarted && !presentationEnded && isFullscreen && (
+                <button
+                  onClick={handlePresentationEnd}
+                  style={{
+                    position: "absolute",
+                    bottom: "20px",
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    background: "rgba(202,216,112,0.9)",
+                    color: "#2D3A3A",
+                    border: "none",
+                    padding: "12px 32px",
+                    borderRadius: "999px",
+                    fontSize: "16px",
+                    fontWeight: "800",
+                    cursor: "pointer",
+                    zIndex: 10,
+                  }}
+                >
+                  발표 종료하기
+                </button>
+              )}
+
+              {/* 카운트다운 오버레이 */}
+              {countdown !== null && (
+                <div style={{
+                  position: "absolute",
+                  top: 0, left: 0, right: 0, bottom: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "rgba(0,0,0,0.4)",
+                  pointerEvents: "none",
+                }}>
+                  <div style={{
+                    fontSize: "120px",
+                    fontWeight: "900",
+                    color: "white",
+                    textShadow: "0 4px 20px rgba(0,0,0,0.5)",
+                    lineHeight: 1,
+                  }}>
+                    {countdown}
+                  </div>
+                </div>
+              )}
+
+              {/* 카메라 가이드라인 - 발표 시작 전에만 표시 */}
+              {!isStarted && (
+                <div style={{
+                  position: "absolute",
+                  top: 0, left: 0, right: 0, bottom: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  pointerEvents: "none",
+                }}>
+                  {/* 가이드 박스 */}
+                  <div style={{
+                    width: "55%",
+                    height: "82%",
+                    border: "2px dashed rgba(255,255,255,0.75)",
+                    borderRadius: "16px",
+                    position: "relative",
+                  }}>
+                    {/* 모서리 강조 */}
+                    {["topLeft","topRight","bottomLeft","bottomRight"].map((corner) => (
+                      <div key={corner} style={{
+                        position: "absolute",
+                        width: "18px",
+                        height: "18px",
+                        borderColor: "#6BB5A6",
+                        borderStyle: "solid",
+                        borderWidth: corner.includes("top") ? "3px 0 0 0" : "0 0 3px 0",
+                        ...(corner.includes("Left") ? { left: -1 } : { right: -1 }),
+                        ...(corner.includes("top") ? { top: -1, borderLeftWidth: corner === "topLeft" ? "3px" : "0", borderRightWidth: corner === "topRight" ? "3px" : "0" }
+                          : { bottom: -1, borderLeftWidth: corner === "bottomLeft" ? "3px" : "0", borderRightWidth: corner === "bottomRight" ? "3px" : "0" }),
+                      }} />
+                    ))}
+                  </div>
+                  {/* 안내 텍스트 */}
+                  <div style={{
+                    marginTop: "12px",
+                    background: "rgba(0,0,0,0.5)",
+                    color: "white",
+                    padding: "6px 14px",
+                    borderRadius: "999px",
+                    fontSize: "13px",
+                    fontWeight: "700",
+                  }}>
+                    상반신이 박스 안에 들어오게 맞춰주세요
+                  </div>
+                </div>
+              )}
             </div>
 
             {!isStarted ? (
-              <button
-                onClick={handlePresentationStart}
-                style={mainButtonStyle}
-              >
-                발표 시작하기
-              </button>
+              <>
+                {isSelectingTime ? (
+                  // 시간 선택 화면
+                  <div>
+                    <div style={{ textAlign: "center", fontWeight: "800", color: "#2D3A3A", marginBottom: "14px", fontSize: "15px" }}>
+                      발표 시간을 선택하세요
+                    </div>
+                    <div style={{ display: "flex", gap: "10px" }}>
+                      {[3, 5, 7].map((min) => (
+                        <button
+                          key={min}
+                          onClick={() => handleTimeSelect(min)}
+                          style={{
+                            flex: 1,
+                            padding: "16px 0",
+                            borderRadius: "16px",
+                            border: "2px solid #6BB5A6",
+                            background: "white",
+                            color: "#4D8F82",
+                            fontSize: "16px",
+                            fontWeight: "800",
+                            cursor: "pointer",
+                          }}
+                        >
+                          {min}분
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      onClick={handlePresentationStart}
+                      disabled={isWaiting}
+                      style={{
+                        ...mainButtonStyle,
+                        background: isWaiting ? "#B0C4BE" : "#6BB5A6",
+                        cursor: isWaiting ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      {isWaiting ? "가이드라인 안으로 들어오세요" : "발표 시작하기"}
+                    </button>
+                    <div style={{
+                      textAlign: "center",
+                      marginTop: "10px",
+                      fontSize: "13px",
+                      color: canStart ? "#4D8F82" : "#888",
+                      fontWeight: "600",
+                    }}>
+                      {isWaiting
+                        ? (canStart ? `✅ ${cameraStatus}` : `⚠️ ${cameraStatus}`)
+                        : "버튼을 눌러 발표를 시작하세요"}
+                    </div>
+                  </>
+                )}
+              </>
             ) : !presentationEnded ? (
               <button
                 onClick={handlePresentationEnd}
@@ -234,7 +705,39 @@ function LivePage() {
               </h3>
             </div>
 
-            {!presentationEnded ? (
+            {isUploading ? (
+              <div style={{
+                background: "#F8FCFA",
+                borderRadius: "22px",
+                padding: "30px 24px",
+                color: "#5C706C",
+                textAlign: "center",
+                lineHeight: "2",
+              }}>
+                <div style={{ fontSize: "28px", marginBottom: "10px" }}>📊</div>
+                <div style={{ fontWeight: "800", color: "#2D3A3A", marginBottom: "8px" }}>
+                  결과 분석 중...
+                </div>
+                <div>영상을 분석하고 있어요.</div>
+                <div>잠시만 기다려주세요.</div>
+              </div>
+            ) : isAnalyzing ? (
+              <div style={{
+                background: "#F8FCFA",
+                borderRadius: "22px",
+                padding: "30px 24px",
+                color: "#5C706C",
+                textAlign: "center",
+                lineHeight: "2",
+              }}>
+                <div style={{ fontSize: "28px", marginBottom: "10px" }}>🤔</div>
+                <div style={{ fontWeight: "800", color: "#2D3A3A", marginBottom: "8px" }}>
+                  질문 생성 중...
+                </div>
+                <div>AI 청중이 질문을 만들고 있어요.</div>
+                <div>잠시만 기다려주세요.</div>
+              </div>
+            ) : !presentationEnded ? (
               <div
                 style={{
                   background: "#F8FCFA",
@@ -360,7 +863,9 @@ function LivePage() {
                     onClick={handleNextQuestion}
                     style={subButtonStyle}
                   >
-                    다음 질문
+                    {currentQuestionIndex === generatedQuestions.length - 1
+                      ? "질의응답 종료"
+                      : "다음 질문"}
                   </button>
                 </div>
               </>

@@ -23,6 +23,8 @@ if str(DATABASE_DIR) not in sys.path:
 
 load_dotenv(dotenv_path=BASE_DIR / ".env")
 
+from realtime_mode.websocket import router as realtime_router
+
 import database
 import models
 import auth
@@ -33,6 +35,8 @@ from vision_service import analyze_vision
 
 
 app = FastAPI(title="AICO API")
+
+app.include_router(realtime_router)
 
 models.Base.metadata.create_all(bind=database.engine)
 
@@ -57,6 +61,58 @@ def read_root():
     return {"message": "서버 연결 성공"}
 
 
+@app.post("/check-camera")
+async def check_camera_frame(file: UploadFile = File(...)):
+    """카메라 프레임 1장을 받아 얼굴 위치/거리 판단"""
+    import numpy as np
+    import mediapipe as mp
+    import cv2
+
+    content = await file.read()
+    nparr = np.frombuffer(content, np.uint8)
+    frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+    if frame is None:
+        return {"is_valid": False, "distance": "오류", "suggestion": "이미지를 읽을 수 없습니다."}
+
+    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+    with mp.solutions.face_mesh.FaceMesh(
+        static_image_mode=True,
+        max_num_faces=1,
+        min_detection_confidence=0.5,
+    ) as face_mesh:
+        result = face_mesh.process(rgb)
+
+        if not result.multi_face_landmarks:
+            return {"is_valid": False, "distance": "얼굴 미감지", "suggestion": "얼굴이 감지되지 않습니다. 카메라를 정면으로 바라봐주세요."}
+
+        lm = result.multi_face_landmarks[0].landmark
+        face_left  = lm[234].x
+        face_right = lm[454].x
+        face_ratio = abs(face_right - face_left)
+        nose_x     = lm[1].x   # 코 끝 x좌표
+        chin_y     = lm[152].y  # 턱 y좌표 (0=상단, 1=하단)
+
+        FACE_TOO_CLOSE = 0.50  # 얼굴이 프레임 너비의 50% 이상이면 너무 가까움
+        FACE_TOO_FAR   = 0.07  # 7% 이하면 너무 멀음
+
+        # 얼굴이 중앙에서 너무 벗어난 경우
+        if abs(nose_x - 0.5) > 0.28:
+            return {"is_valid": False, "distance": "중앙 벗어남", "suggestion": "얼굴을 화면 중앙에 맞춰주세요."}
+
+        # 턱이 화면 60% 아래 → 얼굴만 클로즈업된 상태 → 상반신 안 보임
+        if chin_y > 0.62:
+            return {"is_valid": False, "distance": "너무 가까움", "suggestion": "상반신이 보이도록 카메라에서 더 멀어져 주세요."}
+
+        if face_ratio > FACE_TOO_CLOSE:
+            return {"is_valid": False, "distance": "너무 가까움", "suggestion": "상반신이 보이도록 카메라에서 더 멀어져 주세요."}
+        elif face_ratio < FACE_TOO_FAR:
+            return {"is_valid": False, "distance": "너무 멀음", "suggestion": "카메라에 조금 더 가까이 다가와 주세요."}
+        else:
+            return {"is_valid": True, "distance": "적당", "suggestion": "좋아요! 발표를 시작할 수 있습니다."}
+
+
 @app.post("/upload")
 async def upload_video(
     background_tasks: BackgroundTasks,
@@ -65,7 +121,10 @@ async def upload_video(
     db: Session = Depends(database.get_db),
     current_user: models.UserModel = Depends(auth.get_current_user),
 ):
-    file_path = os.path.join(UPLOAD_DIR, file.filename)
+    import time as _time
+    ext = os.path.splitext(file.filename)[1] or ".webm"
+    unique_name = f"{int(_time.time())}_{file.filename}"
+    file_path = os.path.join(UPLOAD_DIR, unique_name)
 
     try:
         selected_personas = json.loads(selected_personas)
@@ -89,7 +148,17 @@ async def upload_video(
 
         script_text = speech_result.get("full_script", "")
 
-        vision_result = analyze_vision(file_path)
+        # webm → mp4 변환 (실시간 녹화 영상 대응)
+        analyze_path = file_path
+        if file_path.endswith('.webm'):
+            import subprocess
+            mp4_path = file_path.replace('.webm', '.mp4')
+            cmd = ['ffmpeg', '-y', '-i', file_path, mp4_path]
+            conv = subprocess.run(cmd, capture_output=True, text=True)
+            if conv.returncode == 0:
+                analyze_path = mp4_path
+
+        vision_result = analyze_vision(analyze_path)
 
         if vision_result.get("is_valid") is False:
             vision_result = {
@@ -179,7 +248,7 @@ async def upload_video(
             "message": "분석 완료",
             "record_id": new_record.id,
             "filename": file.filename,
-            "video_url": f"http://127.0.0.1:8000/uploads/{file.filename}",
+            "video_url": f"http://127.0.0.1:8000/uploads/{unique_name}",
             "total_score": final_score,
             "summary": ai_result.get(
                 "summary",
