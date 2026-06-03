@@ -7,28 +7,60 @@ from llm.app.core.config import OPENAI_API_KEY, OPENAI_MODEL
 
 
 # ==========================================
-# 1. 👥 페르소나 상세 정의
+# 1. 👥 전문 심사위원(청중) 10인 상세 정의 및 의도 가이드
 # ==========================================
 PERSONA_DETAILS = {
-    "mentor": """[멘토형 — 친절하고 전문적인 교수님]
-- 성격: 발표자의 성장을 돕는 따뜻한 전문가. 논리적 완성도를 높일 수 있는 방향을 제시함.
-- 질문 방식: 스크립트 내 '핵심 개념'이나 '방법론'의 타당성을 묻고, 보완점을 제안.
-- 지시: 반드시 스크립트 내 특정 키워드를 인용하여 질문하고, 정중한 존댓말을 사용하세요.""",
+    # ── 표준 직무/전문군 7인 ──────────────────────────────────
+    "hr_manager": """[인사담당자 — 태도, 소통력, 조직 적합성 검증]
+- 역할 및 최고 강점: 지원자의 협업 능력, 전달력, 조직 융화 및 비즈니스 매너 평가의 최고 전문가.
+- 질문 스타일: 갈등 해결 경험, 협업 과정에서의 본인의 역할, 발표 태도 및 소통 방식에 대해 질문.
+- 의도 가이드: 이 질문을 통해 발표자의 '소통 및 협업 역량'을 확인하고자 함을 명시하세요.""",
 
-    "press": """[압박형 — 까다롭고 날카로운 전문가 교수님]
-- 성격: 높은 전문성으로 논리적 허점과 근거의 빈약함을 집요하게 파고듦.
-- 질문 방식: 발표자가 제시한 '근거'의 취약점을 공격하거나 반대 사례를 제시.
-- 지시: 날카로운 통찰력을 보여주되 인신공격은 금지. 권위적이지만 존댓말을 사용하세요.""",
+    "tech_developer": """[현직 개발자 — 기술적 타당성 및 구현 가능성 검증]
+- 역할 및 최고 강점: 아키텍처, 사용 기술의 타당성, 코드 무결성 및 성능 최적화 평가의 최고 전문가.
+- 질문 스타일: 선택한 기술 스택의 이유, 데이터 흐름, 예외 처리 및 확장성 문제를 송곳처럼 날카롭게 질문.
+- 의도 가이드: 이 질문을 통해 발표 내용의 '기술적 구체성과 아키텍처 타당성'을 확인하고자 함을 명시하세요.""",
 
-    "troll": """[트롤형 — 무성의하고 맥락 없는 교수님]
-- 성격: 발표에 관심이 없고 지엽적인 부분에 집착함. 전문성은 낮으나 까다로운 태도.
-- 질문 방식: 이미 설명한 내용을 재질문하거나 주제와 무관한 지엽적 트집.
-- 지시: 무성의한 태도를 유지하되, 존댓말은 반드시 사용하세요.""",
+    "executive": """[임원진 — 비즈니스 가치 및 거시적 방향성 검증]
+- 역할 및 최고 강점: 프로젝트의 궁극적인 기대 효과, ROI(투자 대비 효율), 시장 경쟁력 평가의 최고 전문가.
+- 질문 스타일: "그래서 이 서비스가 기존 시장과 다른 점이 무엇인가?", "수익 모델이나 확장 계획은 무엇인가?" 등 거시적 질문.
+- 의도 가이드: 이 질문을 통해 프로젝트의 '사업적 가치 및 거시적 비전'을 확인하고자 함을 명시하세요.""",
 
-    "basic": """[기본형 — 친절하지만 원론적인 교수님]
-- 성격: 발표자의 노력을 격려하며 무난하고 표준적인 질문을 던짐.
-- 질문 방식: 발표 '의의', '청중 타겟', '추후 발전 방향'에 대해 묻는 방식.
-- 지시: 부드럽고 따뜻한 말투로, 발표자가 충분히 설명할 기회를 주는 질문을 하세요."""
+    "academic_professor": """[연구 중심 교수 — 이론적 배경 및 논리적 완결성 검증]
+- 역할 및 최고 강점: 연구 방법론, 데이터의 신뢰성, 선행 연구 분석 및 학술적 가치 평가의 최고 전문가.
+- 질문 스타일: 주장에 대한 학술적/통계적 근거, 개념의 명확한 정의, 도출된 결론의 논리적 모순을 지적하는 질문.
+- 의도 가이드: 이 질문을 통해 발표의 '학술적/논리적 완결성과 근거의 신뢰성'을 확인하고자 함을 명시하세요.""",
+
+    "vc_investor": """[창업 투자자(VC) — 시장성 및 문제 해결력 검증]
+- 역할 및 최고 강점: 타겟 고객의 페인 포인트(Pain Point) 명확성, 시장 규모, 성장 가능성 평가의 최고 전문가.
+- 질문 스타일: "이 문제를 겪는 진짜 고객을 만나봤나?", "진입 장벽을 어떻게 구축할 것인가?" 등 날카로운 시장 중심 질문.
+- 의도 가이드: 이 질문을 통해 아이디어의 '실제 시장성 및 현실적 문제 해결력'을 확인하고자 함을 명시하세요.""",
+
+    "product_marketer": """[프로덕트 마케터 — 청중 타겟팅 및 유저 획득 전략 검증]
+- 역할 및 최고 강점: 사용자 경험(UX), 대중을 설득하는 스토리텔링, 초기 유저 확보(GTM) 전략 평가의 최고 전문가.
+- 질문 스타일: 발표의 스토리라인 구성, 핵심 가치 제안(UVP)의 명확성, 초기 사용자 유치 방안에 대해 질문.
+- 의도 가이드: 이 질문을 통해 발표의 '스토리텔링 흡입력 및 유저 중심 사고'를 확인하고자 함을 명시하세요.""",
+
+    "peer_evaluator": """[동료 평가자 — 협업 시너지 및 프로젝트 기여도 검증]
+- 역할 및 최고 강점: 팀원 관점에서의 실질적인 업무 분담, 직관적인 UI/UX 편의성 평가의 최고 전문가.
+- 질문 스타일: 사용자가 느낄 첫인상, 팀 프로젝트 시 발생한 파트별 병목 현상 극복 과정 등 실무 밀착형 질문.
+- 의도 가이드: 이 질문을 통해 실무 레벨에서의 '사용자 편의성 및 동료 간 협업 시너지'를 확인하고자 함을 명시하세요.""",
+
+    # ── ⚡ 고난도 매운맛 / 빌런형 3인 ──────────────────────────
+    "sharp_critic": """[송곳형 평가위원 — 논리적 허점을 무섭게 파고드는 공격적 압박러]
+- 역할 및 최고 강점: 발표 내용 중 가장 취약하거나 준비가 덜 된 약점을 본능적으로 찾아내 뼈를 때리는 공격 전문가.
+- 질문 스타일: 공격적이고 회의적인 어조로 핵심을 타격. "이 부분은 완전히 비현실적인데 대책이 있긴 한가요?", "근거가 빈약한데 본인만의 착각 아닌가요?" 등 정곡을 찌름.
+- 의도 가이드: 이 질문을 통해 유화적인 분위기를 깨뜨려 발표자의 평정심을 흔들고, 최악의 압박 면접/질의 상황에서 '논리적 수습 능력 및 위기 방어 역량'을 검증하고자 함을 명시하세요.""",
+
+    "distracted_troll": """[무심한 척 허점을 찌르는 고난도 위원 — 앞선 내용 재질문 및 어려운 전문 용어로 압박]
+- 역할 및 최고 강점: 발표에 큰 흥미가 없는 듯 시큰둥한 태도를 유지하지만, 발표자가 무심코 넘긴 허점이나 고난도 개념을 툭 던져 당황시키는 심사위원.
+- 질문 스타일: 영혼 없는 어조로 질문. "아까 서두에서 핵심 알고리즘이나 원리를 다루신 것 같은데, 정확히 어떤 메커니즘인지 기억이 안 나니 다시 한번 설명해 보라"고 하거나, 발표 주제와 연관된 "학술적/기술적인 고난도 전문 용어나 상위 개념"을 언급하며 이에 대한 본인의 견해나 반영 여부를 기습적으로 질문.
+- 의도 가이드: 이 질문을 통해 발표자가 앞에서 이미 설명한 본인의 핵심 논리를 청중에게 다시 한번 명확하고 쉽게 각인시킬 수 있는지(재설명 역량), 그리고 예상치 못한 어려운 전문 용어 앞에서도 당황하지 않고 아는 선에서 유연하게 대처하는지 검증하고자 함을 명시하세요.""",
+
+    "conservative_elder": """[보수적인 꼰대 심사위원 — 변화를 거부하고 기존 방식만 고집하는 청중]
+- 역할 및 최고 강점: 새로운 기술이나 트렌드에 극도로 회의적이며 "라떼는 수작업으로 다 했다"는 마인드의 장벽.
+- 질문 스타일: 팔짱을 끼고 혀를 차는 듯한 뉘앙스. "굳이 AI나 복잡한 시스템 안 쓰고 엑셀이나 사람이 직접 해도 될 것 같은데 돈 아깝게 왜 만들었죠?"라며 가치를 폄하함.
+- 의도 가이드: 보수적인 투자자나 조직의 상사를 설득해야 하는 비즈니스 현실을 반영한 것으로, 서비스의 '필연적인 도입 당위성과 혁신성'을 감정이 아닌 객관적 데이터로 입증할 수 있는지 검증하고자 함을 명시하세요."""
 }
 
 
@@ -43,7 +75,7 @@ def classify_script(script: str) -> str:
     if not cleaned or len(cleaned) < 5:
         return "silent"
 
-    # 2단계: Whisper STT 특성(문장부호 누락)을 감안한 텍스트 절대 길이 검증 (Weak Presentation)
+    # 2단계: Whisper STT 특성을 감안한 텍스트 절대 길이 검증 (Weak Presentation)
     if len(cleaned) < 25:
         return "weak_presentation"
 
@@ -54,7 +86,7 @@ def classify_script(script: str) -> str:
 # 3. 🔩 실무형 타입 및 배열 정형화 가드 함수
 # ==========================================
 def safe_float(value, default=0.0) -> float:
-    """🎯 [버그 패치 1 반영]: 소수점 뇌절 및 타 자료형 오염을 철저하게 분리 수금하는 정규식 서치 가드"""
+    """🎯 소수점 뇌절 및 타 자료형 오염을 철저하게 분리 수금하는 정규식 서치 가드"""
     try:
         if isinstance(value, str):
             match = re.search(r"-?\d+(\.\d+)?", value)
@@ -66,7 +98,7 @@ def safe_float(value, default=0.0) -> float:
 
 
 def normalize_feedback(arr: list, fallback: List[str]) -> List[str]:
-    """GPT가 피드백 개수를 2개나 4개로 뇌절칠 때 정확히 3개 배열로 컷/패딩하여 프론트 UI 깨짐을 막는 가드"""
+    """GPT가 피드백 개수를 초과하거나 미달하게 뇌절칠 때 정확히 3개 배열로 컷/패딩하여 프론트 UI 깨짐을 막는 가드"""
     if not isinstance(arr, list):
         return fallback
     arr = [str(x).strip() for x in arr if str(x).strip()]
@@ -81,84 +113,77 @@ def normalize_feedback(arr: list, fallback: List[str]) -> List[str]:
 # 4. 고정 응답 함수 (서버 내부 즉시 반환 레이어)
 # ==========================================
 def get_silent_response(selected_personas: List[str]) -> dict:
-    personas = selected_personas if selected_personas else ["basic"]
+    personas = selected_personas if selected_personas else ["hr_manager"]
     return {
         "summary": "발표 스크립트가 존재하지 않거나 발표로 인정할 수 있는 유의미한 음성이 감지되지 않았습니다.",
-        "persona_questions": [{"persona_type": p, "question": "아무런 발표도 진행되지 않아 질문을 드릴 수가 없습니다."} for p in personas],
+        "persona_questions": [
+            {
+                "persona_type": p, 
+                "question": "아무런 발표도 진행되지 않아 질문을 드릴 수가 없습니다.",
+                "intent": "음성 입력 여부 및 최소 정보량 도달을 확인하기 위한 시스템 가드입니다."
+            } for p in personas
+        ],
         "content_feedback": {
             "strength": ["음성 신호 확인이 불가능합니다.", "텍스트 데이터 분량이 존재하지 않습니다.", "분석을 진행할 기본 대상이 없습니다."],
             "weakness": ["발표 대본의 절대적인 텍스트 길이가 부족합니다.", "도입-전개-결론의 구조적 전개가 일어나지 않았습니다.", "프로젝트에 대한 설명 정보량이 전무합니다."],
             "improvement": ["마이크 녹음 상태 및 오디오 환경을 재점검해 보세요.", "연습하고자 하는 발표의 스크립트 내용을 정상적으로 입력해 주세요.", "의도적인 무음 상태가 지속되었는지 확인이 필요합니다."]
         },
-        "structure_score": 0.0,
-        "evidence_score": 0.0,
-        "expression_score": 0.0,
-        "content_score": 0.0,
-        "delivery_score": 0.0,
-        "final_score": 0.0
+        "structure_score": 0.0, "evidence_score": 0.0, "expression_score": 0.0,
+        "content_score": 0.0, "final_score": 0.0 # ❌ delivery_score 지움
     }
 
-
 def get_weak_presentation_response(selected_personas: List[str]) -> dict:
-    personas = selected_personas if selected_personas else ["basic"]
+    personas = selected_personas if selected_personas else ["hr_manager"]
     return {
         "summary": "발표의 오프닝이나 의도는 감지되었으나, 본문 설명의 분량이 너무 짧아 구체적인 루브릭 비평이 불가능합니다.",
-        "persona_questions": [{"persona_type": p, "question": "발표 형식을 갖추지 않아 질문이 불가능합니다. 본문 내용을 채워 다시 발표해주세요."} for p in personas],
+        "persona_questions": [
+            {
+                "persona_type": p, 
+                "question": "발표 형식을 갖추지 않아 질문이 불가능합니다. 본문 내용을 채워 다시 발표해주세요.",
+                "intent": "발표의 최소 분량(25자 이상) 확보를 유도하고 본론 구성을 촉구하기 위함입니다."
+            } for p in personas
+        ],
         "content_feedback": {
             "strength": ["기본적인 발표 의도 표현 형식을 시도하려는 의지가 확인되었습니다.", "스피치를 시작하려는 서두 연결 시도가 감지되었습니다.", "최소한의 음성 입력 텍스트화가 완료되었습니다."],
             "weakness": ["발표 본문의 정보량이 지나치게 짧아 내용 비평이 불가능합니다.", "주제를 설명할 구체적인 기능이나 근거가 생략되어 있습니다.", "전개 및 결론으로 이어지는 거시 논리 구조가 결여되었습니다."],
             "improvement": ["준비하신 과제나 서비스의 핵심 본문을 최소 3문장 이상 추가해 보세요.", "서론만 말하고 끝나지 않도록 주요 특징 및 구현 내용을 기술해 주세요.", "전달하고자 하는 핵심 정보를 풍부하게 서술한 뒤 재도전해 보세요."]
         },
-        "structure_score": 35.0,
-        "evidence_score": 15.0,
-        "expression_score": 25.0,
-        "content_score": 25.0,
-        "delivery_score": 0.0,
-        "final_score": 25.0
+        "structure_score": 35.0, "evidence_score": 15.0, "expression_score": 25.0,
+        "content_score": 25.0, "final_score": 25.0 
     }
 
 
 # ==========================================
-# 5. ⚡ [속도 최적화] 시스템 프롬프트 생성
+# 5.  [속도 최적화] 시스템 프롬프트 생성
 # ==========================================
 def generate_system_prompt(selected_personas: List[str]) -> str:
     valid_personas = [p for p in selected_personas if p in PERSONA_DETAILS]
     if not valid_personas:
-        valid_personas = ["basic"]
+        valid_personas = ["hr_manager"]
 
     persona_section = "\n".join(PERSONA_DETAILS[p] for p in valid_personas)
 
     return f"""
 # Role
-너는 발표(팀플, 창업 피칭, 자기소개 등)를 채점하는 '루브릭 기반 내용 심사위원'이다. 
-단어 매칭 대신 전체 문맥과 정보 전달 흐름을 기준으로 채점하라.
+너는 발표(팀플, 면접, 창업 피칭, 기술 스피치 등)를 채점하고 날카로운 질문을 던지는 '전문가 청중 심사위원단'이다.
+단어 매칭 대신 전체 문맥과 직무/전문 영역별 핵심 정보 전달 흐름을 기준으로 채점하라.
 
-[현재 심사위원 구성]
+[현재 심사위원단 구성 (선택된 청중)]
 {persona_section}
 
-#  최우선 채점 가이드라인
-
-1. [ STT 노이즈] 문맥상 유추 가능한 오타는 정상 단어로 간주하되, 없는 내용을 과도하게 상상해서 채우지 마라.
-2. [구조 및 사담]
-   - 인사와 팀/주제 소개가 포함된 올바른 오프닝 여부를 structure_score에 적극 반영하라.
-   - 구어체 필러("아", "그러니까", "음" 등)는 감점하지 마라.
+# 📊 최우선 채점 및 질문 가이드라인
+1. [역할 몰입]: 선택된 각각의 심사위원의 '역할 및 최고 강점'과 '질문 스타일'에 100% 빙의하여 질문을 생성하라.
+2. [🎯 질문 의도(intent) 필수 포함]: 대시보드 표출용 필드이다. 질문을 던진 심사위원이 왜 이 질문을 했는지, 이 질문을 통해 발표자의 어떤 핵심 역량이나 논리적 구멍을 검증하고 싶었는지를 명확하고 정중한 어조의 한국어로 설명하라.
+3. [구조 및 사담]:
    - 발표 도중 촬영/녹음 관련 혼잣말이나 청중 외 대화가 1회라도 감지되면 structure_score를 40점 이하로 제한하고 summary에 사담 감지 사실을 명시하라.
    - 100% 순수 잡담/장난이면 전 항목을 20점 미만으로 제한하라.
-3. [ 설명 단위 및 완결성 평가] 기능, 구조, 방법론, 계획 등 독립적 설명 단위가 많을수록 우수한 발표다. 
-    **[치명적 감점]**: 문장이 깔끔하고 유창하더라도, 내용 알맹이가 없거나 서론(도입)만 말하다가 급격히 종료된 미완성 발표는 'evidence_score'를 절대 30점 이하로 하방 고정하라.
-4. [ 진행형 상황] 중간 공유, 피칭, 자기소개도 정상 수용하며, 구체적인 향후 계획은 결론 구조로 인정하라.
-
-# 📊 채점 앵커 (Few-shot)
-- [완벽 구조 + 설명 단위 3개 이상 + 명확한 근거] → 구조:90 / 근거:85 / 표현:85
-- [오프닝·전개 우수 + 결론 미완성 + 설명 2개] → 구조:60 / 근거:55 / 표현:65
-- [문장은 자연스러우나 알맹이/설명이 전혀 없음] → 구조:50 / 근거:35 / 표현:60
-- [발표 중 촬영/녹음 관련 사담 1회 감지] → 구조:40이하 / 근거:GPT재량 / 표현:GPT재량
-- [발표가 아닌 100% 일상 잡담, 장난성 입력] → 구조:15이하 / 근거:10이하 / 표현:15이하
+4. [설명 단위 및 완결성 평가]: 기능, 구조, 방법론, 계획 등 독립적 설명 단위가 많을수록 우수한 발표다. 
+   **[치명적 감점]**: 문장이 유창하더라도 내용 알맹이가 없거나 서론(도입)만 말하다가 급격히 종료된 미완성 발표는 'evidence_score'를 절대 30점 이하로 하방 고정하라.
 
 # Evaluation Rubric (100점 만점 기준 정밀 채점)
-1. structure_score (가중치 40%): 오프닝(인사/소개) 및 도입->전개->결론 흐름의 명확성 (순수 잡담은 15점 이하)
-2. evidence_score (가중치 40%): 상황에 맞는 구체적인 설명 단위, 아이디어, 방법론의 설득력
-3. expression_score (가중치 20%): 주제에 적합한 어휘 구사력 및 질의응답력
+1. structure_score (가중치 40%): 오프닝(인사/소개) 및 도입->전개->결론 흐름의 명확성
+2. evidence_score (가중치 40%): 청중 성격에 맞는 구체적 설명 단위의 설득력 및 데이터/논리 근거
+3. expression_score (가중치 20%): 주제에 적합한 전문 어휘 구사력 및 질의응답력
 
 # 🗮 점수 산출 공식
 content_score = (structure_score * 0.4) + (evidence_score * 0.4) + (expression_score * 0.2)
@@ -167,8 +192,8 @@ final_score = content_score
 
 # Instructions
 - 모든 응답은 한국어로 작성한다.
-- content_feedback: strength, weakness, improvement 조항을 핵심만 '정확히 딱 3가지씩' 짧고 명확한 문장으로 리스트 출력하라. (장황하게 쓰지 말 것)
-- persona_questions: 선택된 심사위원(persona_type)별로 날카로운 질문을 '정확히 딱 1개씩만' 생성하라.
+- content_feedback: strength, weakness, improvement 조항을 핵심만 '정확히 딱 3가지씩' 짧고 명확한 문장으로 리스트 출력하라.
+- persona_questions: 선택된 심사위원(persona_type)별로 질문(question) 1개와 그 질문의 의도(intent) 1개를 1:1 세트로 정확히 매칭하여 생성하라.
 """
 
 
@@ -189,18 +214,23 @@ JSON_SCHEMA = {
                     "properties": {
                         "persona_type": {
                             "type": "string",
-                            "enum": ["mentor", "press", "troll", "basic"]
+                            "enum": [
+                                "hr_manager", "tech_developer", "executive", "academic_professor", 
+                                "vc_investor", "product_marketer", "peer_evaluator",
+                                "sharp_critic", "distracted_troll", "conservative_elder"
+                            ]
                         },
-                        "question": {"type": "string"}
+                        "question": {"type": "string"},
+                        "intent": {"type": "string"}
                     },
-                    "required": ["persona_type", "question"]
+                    "required": ["persona_type", "question", "intent"]
                 }
             },
             "content_feedback": {
                 "type": "object",
                 "properties": {
-                    "strength":    {"type": "array", "items": {"type": "string"}},
-                    "weakness":    {"type": "array", "items": {"type": "string"}},
+                    "strength":     {"type": "array", "items": {"type": "string"}},
+                    "weakness":     {"type": "array", "items": {"type": "string"}},
                     "improvement": {"type": "array", "items": {"type": "string"}}
                 },
                 "required": ["strength", "weakness", "improvement"]
@@ -232,12 +262,21 @@ async def get_ai_presentation_feedback(
     if not OPENAI_API_KEY:
         raise ValueError("API KEY가 로드되지 않았습니다. .env 파일을 확인하세요.")
 
-# 🎯 [해결 패치]: 프론트에서 'pressure'나 '압박형' 어떤 걸로 보내든 'press'로 완벽 매핑
+    # 🎯 [확장 패치]: 한글/영문 매핑을 총 10인 체제에 맞춰 완벽 정비
     persona_map = {
-        "mentor": "mentor", "멘토형": "mentor", "멘토": "mentor",
-        "press": "press", "pressure": "press", "압박형": "press", "압박": "press", "비판형": "press",
-        "troll": "troll", "troll형": "troll", "트롤형": "troll", "트롤": "troll",
-        "basic": "basic", "기본형": "basic", "기본": "basic"
+        # 기존 기본 7인
+        "hr_manager": "hr_manager", "인사담당자": "hr_manager", "인사": "hr_manager", "hr": "hr_manager",
+        "tech_developer": "tech_developer", "현직개발자": "tech_developer", "개발자": "tech_developer", "tech": "tech_developer",
+        "executive": "executive", "임원진": "executive", "임원": "executive", "대표": "executive",
+        "academic_professor": "academic_professor", "교수님": "academic_professor", "교수": "academic_professor", "연구원": "academic_professor",
+        "vc_investor": "vc_investor", "투자자": "vc_investor", "창업투자자": "vc_investor", "vc": "vc_investor",
+        "product_marketer": "product_marketer", "마케터": "product_marketer", "기획자": "product_marketer",
+        "peer_evaluator": "peer_evaluator", "동료평가자": "peer_evaluator", "동료": "peer_evaluator", "팀원": "peer_evaluator",
+        
+        # 새롭게 정비된 까다로운/고난도 3인
+        "sharp_critic": "sharp_critic", "송곳형": "sharp_critic", "공격형": "sharp_critic", "압박형": "sharp_critic", "공격": "sharp_critic",
+        "distracted_troll": "distracted_troll", "트롤형": "distracted_troll", "고난도": "distracted_troll", "재질문": "distracted_troll", "전문용어": "distracted_troll", "무심한형": "distracted_troll",
+        "conservative_elder": "conservative_elder", "보수적": "conservative_elder", "꼰대형": "conservative_elder", "고인물": "conservative_elder"
     }
     
     # 전달받은 리스트 표준화 변환
@@ -250,7 +289,7 @@ async def get_ai_presentation_feedback(
         selected_personas = list(dict.fromkeys(standardized_personas))
     
     if not selected_personas:
-        selected_personas = ["basic"]
+        selected_personas = ["hr_manager"]
         
     clean_script = script.strip() if script else ""
     classification = classify_script(clean_script)
@@ -263,20 +302,12 @@ async def get_ai_presentation_feedback(
         return get_weak_presentation_response(selected_personas)
 
     # ── OpenAI 비동기 연산 레이어 ──────────────────────────
-    clean_script = (
-        clean_script
-        .replace("\n", " ")
-        .replace("\r", " ")
-        .replace("\t", " ")
-    )
-
+    clean_script = clean_script.replace("\n", " ").replace("\r", " ").replace("\t", " ")
     client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 
     try:
-        # 🎯 [속도 대혁신]: 유저님의 지적대로 max_tokens 가드 배치 및 가벼운 mini 모델 사용
-        # config 설정에서 model이 'gpt-4o-mini'로 잡혀있는지 꼭 확인해 주세요!
         response = await client.chat.completions.create(
-            model=OPENAI_MODEL,  # 💡 gpt-4o-mini 설정 권장
+            model=OPENAI_MODEL,
             messages=[
                 {
                     "role": "system",
@@ -289,7 +320,7 @@ async def get_ai_presentation_feedback(
             ],
             response_format={"type": "json_schema", "json_schema": JSON_SCHEMA},
             temperature=0.0,
-            max_tokens=800  # 🔥 [핵심 패치]: 출력 토큰 강제 제한으로 API 속도 병목 완전 해결
+            max_tokens=1000  # 💡 의도(intent) 문장이 추가되므로 버퍼를 위해 1000토큰 설정
         )
 
         content = response.choices[0].message.content
@@ -309,7 +340,6 @@ async def get_ai_presentation_feedback(
 
         calc_content_score = (struct_s * 0.4) + (evid_s * 0.4) + (expr_s * 0.2)
 
-        # GPT 환각으로 전 항목 0점 반환한 경우만 방어 (25점 하한 보정 제거)
         if calc_content_score == 0.0:
             calc_content_score = 10.0
             result["summary"] = "채점 오류로 최소 점수(10점)로 보정되었습니다."
@@ -340,8 +370,8 @@ async def get_ai_presentation_feedback(
                 "strength": fallback_strength, "weakness": fallback_weakness, "improvement": fallback_improvement
             }
 
-        # 💡 페르소나 질문 싱크 및 타입 오염 필터 (중복 제거)
-        requested_personas = list(dict.fromkeys(selected_personas)) if selected_personas else ["basic"]
+        # 💡 페르소나 질문 및 의도(Intent) 싱크 가드 레이어
+        requested_personas = list(dict.fromkeys(selected_personas)) if selected_personas else ["hr_manager"]
         
         raw_questions = result.get("persona_questions", [])
         if not isinstance(raw_questions, list):
@@ -351,18 +381,16 @@ async def get_ai_presentation_feedback(
         for p in requested_personas:
             matched = next((q for q in raw_questions if isinstance(q, dict) and q.get("persona_type") == p), None)
             if matched:
+                # intent 필드가 누락되었을 경우 기본값 바인딩 가드
+                if "intent" not in matched or not matched["intent"]:
+                    matched["intent"] = "해당 전문가 그룹의 핵심 역량 검증을 위한 종합 질의입니다."
                 filtered_questions.append(matched)
             else:
                 filtered_questions.append({
                     "persona_type": p,
-                    "question": "해당 성향의 심사위원이 생성한 추가 질문이 없습니다."
+                    "question": "해당 성향의 심사위원이 생성한 추가 질문이 없습니다.",
+                    "intent": "발표 분량 부족 혹은 특정 영역의 논리 누락으로 인해 상세 검증 의도를 도출하지 못했습니다."
                 })
-
-        if len(filtered_questions) == 0:
-            filtered_questions.append({
-                "persona_type": "basic",
-                "question": "발표 전반적인 준비 과정과 기획 의도에 대해 간략히 추가 설명해 주시겠습니까?"
-            })
 
         result["persona_questions"] = filtered_questions
         return result

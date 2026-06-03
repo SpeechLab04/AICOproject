@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 from dotenv import load_dotenv
 import traceback
+from typing import List
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATABASE_DIR = BASE_DIR / "database"
@@ -51,6 +52,19 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
+#10인 심사위원 키
+ALL_10_PERSONAS = [
+    "hr_manager",          # 인사담당자
+    "tech_developer",      # 현직 개발자
+    "executive",           # 임원진
+    "academic_professor",  # 연구 중심 교수
+    "vc_investor",         # 창업 투자자(VC)
+    "product_marketer",    # 프로덕트 마케터
+    "peer_evaluator",      # 동료 평가자
+    "sharp_critic",        # 송곳형 평가위원
+    "distracted_troll",    # 무심한 척 허점을 찌르는 고난도 위원
+    "conservative_elder"   # 보수적인 꼰대 심사위원
+]
 
 @app.get("/")
 def read_root():
@@ -147,9 +161,8 @@ async def upload_video(
 
         ai_result = await get_ai_presentation_feedback(
             script=script_text,
-            selected_personas=selected_personas
+            selected_personas=ALL_10_PERSONAS 
         )
-
         content_feedback = ai_result.get("content_feedback", {})
         content_score = ai_result.get("content_score", 0)
         delivery_score = vision_result.get("delivery_score", 0)
@@ -303,7 +316,7 @@ async def get_analysis_result(file_id: str):
 @app.post("/api/v1/ai/feedback")
 async def create_feedback(script: str):
     try:
-        result = await get_ai_presentation_feedback(script=script)
+        result = await get_ai_presentation_feedback(script=script, selected_personas=ALL_10_PERSONAS)
         return {"status": "success", "data": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
