@@ -114,15 +114,22 @@ function DashboardPage() {
     : ["필러워드 사용을 줄여보세요", "답변 시 근거를 조금 더 보강해보세요", "핵심 키워드를 조금 더 강조해보세요"];
 
   const PERSONA_LABEL = {
-    mentor: "멘토형",
-    press: "압박형",
-    troll: "트롤형",
-    basic: "기본형",
-  };
+  hr_manager: "인사담당자",
+  tech_developer: "현직 개발자",
+  executive: "임원진",
+  academic_professor: "연구 중심 교수",
+  vc_investor: "창업 투자자(VC)",
+  product_marketer: "프로덕트 마케터",
+  peer_evaluator: "동료 평가자",
+  sharp_critic: "송곳형 평가위원",
+  distracted_troll: "고난도 질문위원",
+  conservative_elder: "보수적 꼰대위원",
+};
 
   const audienceQuestions = personaQuestions.map((q) => ({
     audience: PERSONA_LABEL[q.persona_type] || q.persona_type,
     question: q.question,
+    intent: q.intent || "질문 의도를 분석 중입니다."
   }));
 
   return (
