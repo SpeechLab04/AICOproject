@@ -235,7 +235,8 @@ async def upload_video(
         content_feedback = ai_result.get("content_feedback", {})
         content_score = ai_result.get("content_score", 0)
         delivery_score = vision_result.get("delivery_score", 0)
-        final_score = ai_result.get("final_score", 0)
+        voice_score = speech_result.get("summary", {}).get("voice_score", 0)
+        final_score = round((content_score + delivery_score + voice_score) / 3)
 
         new_record = models.PresentationRecord(
             user_id=current_user.id,
@@ -278,9 +279,9 @@ async def upload_video(
                 "video_dashboard": vision_result.get("video_dashboard", {}),
             },
             "voice": {
-                "score": 0,
-                "speed_wpm": 0,
-                "filler_count": 0,
+                "score": voice_score,
+                "speed_wpm": speech_result.get("summary", {}).get("wpm", 0),
+                "filler_count": speech_result.get("speech_habits", {}).get("filler_count", 0),
                 "feedback": speech_result.get(
                     "message",
                     "음성 세부 분석 진행 중입니다."
@@ -347,6 +348,37 @@ def get_record_detail(
         raise HTTPException(status_code=404, detail="기록을 찾을 수 없습니다.")
 
     return record
+
+
+@app.patch("/records/{record_id}", response_model=schemas.TitleUpdateResponse)
+def update_record_title(
+    record_id: int,
+    request: schemas.TitleUpdateRequest,
+    db: Session = Depends(database.get_db),
+    current_user: models.UserModel = Depends(auth.get_current_user),
+):
+    record = (
+        db.query(models.PresentationRecord)
+        .filter(
+            models.PresentationRecord.id == record_id,
+            models.PresentationRecord.user_id == current_user.id,
+        )
+        .first()
+    )
+
+    if not record:
+        raise HTTPException(status_code=404, detail="기록을 찾을 수 없습니다.")
+
+    record.title = request.title
+    db.commit()
+    db.refresh(record)
+
+    return {
+        "status": "success",
+        "message": "제목이 수정되었습니다.",
+        "record_id": record_id,
+        "updated_title": record.title,
+    }
 
 
 @app.delete("/records/{record_id}", response_model=schemas.DeleteResponse)

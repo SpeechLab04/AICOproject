@@ -11,6 +11,7 @@ import MyPage from "./pages/MyPage";
 import RecordsPage from "./pages/RecordsPage";
 import PracticeModePage from "./pages/PracticeModePage";
 import ScenarioDetailPage from "./pages/ScenarioDetailPage";
+import PresentationSetupPage from "./pages/PresentationSetupPage";
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
         <Route path="/mypage" element={<MyPage />} />
         <Route path="/records" element={<RecordsPage />} />
         <Route path="/practice-mode" element={<PracticeModePage />} />
+        <Route path="/presentation-setup" element={<PresentationSetupPage />} />
         <Route path="/scenario-detail" element={<ScenarioDetailPage />} />
         
       </Routes>
