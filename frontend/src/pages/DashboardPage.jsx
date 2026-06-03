@@ -66,16 +66,25 @@ function DashboardPage() {
   const videoTimeline = videoDashboard?.timeline || [];
 
   useEffect(() => {
-    const fetchVoiceDetail = async () => {
-      const fileId = analysisResult?.voice?.file_id;
-      if (!fileId) return;
+    const fileId = analysisResult?.voice?.file_id;
+    if (!fileId) return;
 
+    // 이미 summary가 있으면 폴링 불필요
+    if (analysisResult?.voice?.summary) {
+      setVoiceDetailResult(analysisResult.voice);
+      return;
+    }
+
+    const fetchVoiceDetail = async () => {
       try {
         const response = await fetch(`${import.meta.env.VITE_API_URL}/result/${fileId}`);
         const data = await response.json();
 
         if (data.status === "processing") return;
-        if (data.success) setVoiceDetailResult(data);
+        if (data.success) {
+          setVoiceDetailResult(data);
+          clearInterval(timer);
+        }
       } catch (error) {
         console.error("음성 상세 분석 조회 실패:", error);
       }

@@ -77,7 +77,7 @@ function ScenarioDetailPage() {
         </section>
 
         <button
-          onClick={() => navigate("/audience")}
+          onClick={() => navigate("/presentation-setup")}
           onMouseEnter={(e) => {
             e.currentTarget.style.transform = "translateY(-5px)";
             e.currentTarget.style.boxShadow =

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronRight, Trash2, ClipboardList } from "lucide-react";
+import { ChevronRight, Trash2, ClipboardList, Pencil, Check, X } from "lucide-react";
 import Header from "../components/Header";
 import { useIsMobile } from "../hooks/useIsMobile";
 
@@ -14,6 +14,8 @@ function RecordsPage() {
   const [records, setRecords] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [editingId, setEditingId] = useState(null);
+  const [editingTitle, setEditingTitle] = useState("");
 
   useEffect(() => {
     fetchRecords();
@@ -87,6 +89,39 @@ function RecordsPage() {
     navigate("/dashboard");
   };
 
+  const handleEditStart = (e, record) => {
+    e.stopPropagation();
+    setEditingId(record.id);
+    setEditingTitle(record.title || `발표 기록 #${record.id}`);
+  };
+
+  const handleEditSave = async (e, recordId) => {
+    e.stopPropagation();
+    const token = localStorage.getItem("token");
+    try {
+      const response = await fetch(`${API_BASE_URL}/records/${recordId}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ title: editingTitle }),
+      });
+      if (!response.ok) throw new Error("수정 실패");
+      setRecords(records.map((r) => r.id === recordId ? { ...r, title: editingTitle } : r));
+    } catch (error) {
+      console.error("제목 수정 오류:", error);
+      alert("제목 수정 중 오류가 발생했습니다.");
+    } finally {
+      setEditingId(null);
+    }
+  };
+
+  const handleEditCancel = (e) => {
+    e.stopPropagation();
+    setEditingId(null);
+  };
+
   const handleDelete = async (e, recordId) => {
     e.stopPropagation();
     if (!window.confirm("정말 이 발표 기록을 삭제하시겠습니까?\n삭제된 데이터는 복구할 수 없습니다.")) return;
@@ -158,7 +193,7 @@ function RecordsPage() {
                 아직 저장된 발표 기록이 없습니다.
               </p>
               <button
-                onClick={() => navigate("/practice-mode")}
+                onClick={() => navigate("/scenario")}
                 style={{
                   background: "#6BB5A6",
                   color: "white",
@@ -194,15 +229,53 @@ function RecordsPage() {
                     onMouseEnter={(e) => e.currentTarget.style.boxShadow = "0 4px 16px rgba(107,181,166,0.15)"}
                     onMouseLeave={(e) => e.currentTarget.style.boxShadow = "none"}
                   >
-                    <div>
-                      <strong style={{
-                        display: "block",
-                        fontSize: isMobile ? "15px" : "20px",
-                        color: "#2D3A3A",
-                        marginBottom: "4px",
-                      }}>
-                        발표 기록 #{record.id}
-                      </strong>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      {editingId === record.id ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }} onClick={(e) => e.stopPropagation()}>
+                          <input
+                            autoFocus
+                            value={editingTitle}
+                            onChange={(e) => setEditingTitle(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleEditSave(e, record.id);
+                              if (e.key === "Escape") handleEditCancel(e);
+                            }}
+                            style={{
+                              fontSize: isMobile ? "15px" : "18px",
+                              fontWeight: "800",
+                              color: "#2D3A3A",
+                              border: "2px solid #6BB5A6",
+                              borderRadius: "10px",
+                              padding: "4px 10px",
+                              outline: "none",
+                              width: "100%",
+                            }}
+                          />
+                          <button onClick={(e) => handleEditSave(e, record.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#6BB5A6", padding: "4px" }}>
+                            <Check size={18} />
+                          </button>
+                          <button onClick={handleEditCancel} style={{ background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", padding: "4px" }}>
+                            <X size={18} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <strong style={{
+                            display: "block",
+                            fontSize: isMobile ? "15px" : "20px",
+                            color: "#2D3A3A",
+                            marginBottom: "4px",
+                          }}>
+                            {record.title || `발표 기록 #${record.id}`}
+                          </strong>
+                          <button
+                            onClick={(e) => handleEditStart(e, record)}
+                            style={{ background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", padding: "2px", marginBottom: "4px" }}
+                          >
+                            <Pencil size={14} />
+                          </button>
+                        </div>
+                      )}
                       <span style={{ color: "#6B7C79", fontSize: isMobile ? "12px" : "14px" }}>
                         {formatDate(record.created_at)}
                       </span>
