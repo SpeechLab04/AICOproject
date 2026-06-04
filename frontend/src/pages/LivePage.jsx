@@ -18,6 +18,9 @@ function LivePage() {
 
   const [generatedQuestions, setGeneratedQuestions] = useState([]);
 
+  const setup = JSON.parse(localStorage.getItem("presentationSetup")) || {};
+  const setupDuration = setup.duration || null;
+
   const [isStarted, setIsStarted] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -26,8 +29,9 @@ function LivePage() {
   const [isWaiting, setIsWaiting] = useState(false);
   const [countdown, setCountdown] = useState(null);
   const [isSelectingTime, setIsSelectingTime] = useState(false);
-  const [selectedTime, setSelectedTime] = useState(null);
+  const [selectedTime, setSelectedTime] = useState(setupDuration);
   const [remainingTime, setRemainingTime] = useState(null);
+  const [showTimer, setShowTimer] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const wsRef = useRef(null);
   const mediaRecorderRef = useRef(null);
@@ -170,17 +174,9 @@ function LivePage() {
     }
   };
 
-  // 발표 시작하기 버튼 → 시간 선택 화면
+  // 발표 시작하기 버튼 → 대기 모드 진입
   const handlePresentationStart = () => {
-    setIsSelectingTime(true);
-  };
-
-  // 시간 선택 후 → 대기 모드 진입
-  const handleTimeSelect = (minutes) => {
-    setSelectedTime(minutes);
-    setIsSelectingTime(false);
     setIsWaiting(true);
-    // 클릭 직후 전체화면 요청 (브라우저 보안: 직접 클릭 시에만 가능)
     if (cameraContainerRef.current?.requestFullscreen) {
       cameraContainerRef.current.requestFullscreen().catch(err => console.error(err));
     }
@@ -320,7 +316,14 @@ function LivePage() {
     formData.append("file", blob, "realtime_presentation.webm");
 
     formData.append("presentation_topic", actualTopic);
-    
+
+    const setupForLive = JSON.parse(localStorage.getItem("presentationSetup")) || {};
+    formData.append("presentation_material", setupForLive.material || "");
+    formData.append("presentation_script_text", setupForLive.scriptText || "");
+
+    const scenarioForLive = JSON.parse(localStorage.getItem("selectedScenario")) || {};
+    formData.append("scenario_id", scenarioForLive.id || "");
+
     const token = localStorage.getItem("token");
 
     fetch("http://127.0.0.1:8000/upload", {
@@ -467,7 +470,7 @@ function LivePage() {
               />
 
               {/* 발표 중 타이머 */}
-              {isStarted && remainingTime !== null && (
+              {isStarted && remainingTime !== null && showTimer && (
                 <div style={{
                   position: "absolute",
                   top: "12px",
@@ -583,35 +586,19 @@ function LivePage() {
 
             {!isStarted ? (
               <>
-                {isSelectingTime ? (
-                  // 시간 선택 화면
-                  <div>
-                    <div style={{ textAlign: "center", fontWeight: "800", color: "#2D3A3A", marginBottom: "14px", fontSize: "15px" }}>
-                      발표 시간을 선택하세요
-                    </div>
-                    <div style={{ display: "flex", gap: "10px" }}>
-                      {[3, 5, 7].map((min) => (
-                        <button
-                          key={min}
-                          onClick={() => handleTimeSelect(min)}
-                          style={{
-                            flex: 1,
-                            padding: "16px 0",
-                            borderRadius: "16px",
-                            border: "2px solid #6BB5A6",
-                            background: "white",
-                            color: "#4D8F82",
-                            fontSize: "16px",
-                            fontWeight: "800",
-                            cursor: "pointer",
-                          }}
-                        >
-                          {min}분
-                        </button>
-                      ))}
-                    </div>
+                {setupDuration && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "12px", justifyContent: "center" }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", color: "#4D8F82", fontWeight: "700", fontSize: "14px" }}>
+                      <input
+                        type="checkbox"
+                        checked={showTimer}
+                        onChange={(e) => setShowTimer(e.target.checked)}
+                        style={{ width: "16px", height: "16px", accentColor: "#6BB5A6", cursor: "pointer" }}
+                      />
+                      타이머 표시 ({setupDuration}분)
+                    </label>
                   </div>
-                ) : (
+                )}
                   <>
                     <button
                       onClick={handlePresentationStart}
@@ -636,7 +623,6 @@ function LivePage() {
                         : "버튼을 눌러 발표를 시작하세요"}
                     </div>
                   </>
-                )}
               </>
             ) : !presentationEnded ? (
               <button

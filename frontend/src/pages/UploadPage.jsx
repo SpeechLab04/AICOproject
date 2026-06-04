@@ -59,6 +59,12 @@ function UploadPage() {
     formData.append("file", selectedFile);
 
     formData.append("presentation_topic", actualTopic);
+    formData.append("presentation_material", savedSetup.material || "");
+    formData.append("presentation_script_text", savedSetup.scriptText || "");
+
+    const scenario = JSON.parse(localStorage.getItem("selectedScenario")) || {};
+    formData.append("scenario_id", scenario.id || "");
+
     const selectedAudiences =
       JSON.parse(localStorage.getItem("selectedAudiences")) || [];
 

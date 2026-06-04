@@ -37,10 +37,6 @@ function PresentationSetupPage() {
   };
 
   const handleNext = () => {
-    if (!topic.trim()) {
-      alert("발표 주제를 입력해주세요.");
-      return;
-    }
     if (!duration) {
       alert("발표 시간을 선택해주세요.");
       return;
@@ -51,7 +47,8 @@ function PresentationSetupPage() {
       purpose: purpose === "etc" ? customPurpose || "기타" : purpose,
       duration,
       fileName: file ? file.name : null,
-      script,
+      material: materialMode === "text" ? script : "",
+      scriptText: scriptMode === "text" ? script : "",
       scriptFileName: scriptFile ? scriptFile.name : null,
     };
     localStorage.setItem("presentationSetup", JSON.stringify(setup));
@@ -126,7 +123,7 @@ function PresentationSetupPage() {
           {/* 발표 주제 */}
           <div>
             <label style={labelStyle}>
-              발표 주제 <span style={{ color: "#D96B4C" }}>*</span>
+              발표 주제
             </label>
             <input
               type="text"

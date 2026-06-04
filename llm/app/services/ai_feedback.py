@@ -178,7 +178,9 @@ JSON_SCHEMA = {
 async def get_ai_presentation_feedback(
     script: str,
     selected_personas: List[str],
-    topic: str = "대학 자유 주제 발표"
+    topic: str = "대학 자유 주제 발표",
+    material: str = "",
+    presentation_script: str = ""
 ) -> dict:
 
     if not OPENAI_API_KEY: raise ValueError("API KEY가 로드되지 않았습니다. .env 파일을 확인하세요.")
@@ -213,7 +215,12 @@ async def get_ai_presentation_feedback(
             model=OPENAI_MODEL,
             messages=[
                 {"role": "system", "content": generate_system_prompt(selected_personas, topic)},
-                {"role": "user", "content": f"지정된 발표 주제인 [{topic}] 기준에 맞춰 다음 발표 스크립트를 루브릭 기반으로 철저히 분석해 주세요:\n\n{clean_script}"}
+                {"role": "user", "content": (
+                    f"지정된 발표 주제인 [{topic}] 기준에 맞춰 다음 발표 스크립트를 루브릭 기반으로 철저히 분석해 주세요.\n\n"
+                    + (f"[발표 기준 자료]\n{material.strip()}\n\n" if material and material.strip() else "")
+                    + (f"[사전 작성 대본]\n{presentation_script.strip()}\n\n" if presentation_script and presentation_script.strip() else "")
+                    + f"[실제 발표 스크립트]\n{clean_script}"
+                )}
             ],
             response_format={"type": "json_schema", "json_schema": JSON_SCHEMA},
             temperature=0.0,

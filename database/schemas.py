@@ -43,6 +43,7 @@ class RecordResponse(BaseModel):
     id: int
     user_nickname: str
     title: Optional[str] = None
+    scenario_id: Optional[str] = None
     video_url: Optional[str] = None
     practice_count: Optional[int] = None
     

@@ -127,6 +127,9 @@ async def upload_video(
     file: UploadFile = File(...),
     selected_personas: str = Form("[]"),
     presentation_topic: str = Form("대학 자유 주제 발표"),
+    scenario_id: str = Form(""),
+    presentation_material: str = Form(""),
+    presentation_script_text: str = Form(""),
     db: Session = Depends(database.get_db),
     current_user: models.UserModel = Depends(auth.get_current_user),
 ):
@@ -230,7 +233,9 @@ async def upload_video(
         ai_result = await get_ai_presentation_feedback(
             script=script_text,
             selected_personas=parsed_personas,
-            topic=presentation_topic
+            topic=presentation_topic or "대학 자유 주제 발표",
+            material=presentation_material,
+            presentation_script=presentation_script_text,
         )
         content_feedback = ai_result.get("content_feedback", {})
         content_score = ai_result.get("content_score", 0)
@@ -244,7 +249,8 @@ async def upload_video(
             stt_result=script_text,
             summary=ai_result.get("summary", ""),
             content_critique=ai_result.get("content_critique", "내용 비평 데이터가 존재하지 않습니다."),
-            title=presentation_topic.strip() if presentation_topic else "대학 자유 주제 발표",
+            title=presentation_topic.strip() if presentation_topic and presentation_topic.strip() else None,
+            scenario_id=scenario_id or None,
             persona_questions=ai_result.get("persona_questions", []),
             strength=content_feedback.get("strength", ""),
             weakness=content_feedback.get("weakness", ""),
@@ -259,6 +265,11 @@ async def upload_video(
         db.add(new_record)
         db.commit()
         db.refresh(new_record)
+
+        if not new_record.title:
+            new_record.title = f"학교발표#{new_record.id}"
+            db.commit()
+            db.refresh(new_record)
 
         return {
             "message": "분석 완료",
