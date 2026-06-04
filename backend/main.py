@@ -56,18 +56,12 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
-#10인 심사위원 키
-ALL_10_PERSONAS = [
-    "hr_manager",          # 인사담당자
-    "tech_developer",      # 현직 개발자
-    "executive",           # 임원진
-    "academic_professor",  # 연구 중심 교수
-    "vc_investor",         # 창업 투자자(VC)
-    "product_marketer",    # 프로덕트 마케터
-    "peer_evaluator",      # 동료 평가자
-    "sharp_critic",        # 송곳형 평가위원
-    "distracted_troll",    # 무심한 척 허점을 찌르는 고난도 위원
-    "conservative_elder"   # 보수적인 꼰대 심사위원
+# 🎓 학교 상황에 맞춘 교수님 심사위원 4인 키 정의
+ALL_PROFESSOR_PERSONAS = [
+    "mentor",  # 멘토형 (친절하고 전문적인 교수님)
+    "press",   # 압박형 (까다롭고 날카로운 전문가 교수님)
+    "troll",   # 트롤형 (무성의하고 맥락 없는 교수님)
+    "basic"    # 기본형 (친절하지만 원론적인 교수님)
 ]
 
 @app.get("/")
@@ -132,6 +126,7 @@ async def upload_video(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     selected_personas: str = Form("[]"),
+    presentation_topic: str = Form("대학 자유 주제 발표"),
     db: Session = Depends(database.get_db),
     current_user: models.UserModel = Depends(auth.get_current_user),
 ):
@@ -140,10 +135,13 @@ async def upload_video(
     unique_name = f"{int(_time.time())}_{file.filename}"
     file_path = os.path.join(UPLOAD_DIR, unique_name)
 
+    #  프론트에서 넘어온 페르소나 파싱 가드 처리 및 폴백 적용
     try:
-        selected_personas = json.loads(selected_personas)
+        parsed_personas = json.loads(selected_personas)
+        if not isinstance(parsed_personas, list) or not parsed_personas:
+            parsed_personas = ALL_PROFESSOR_PERSONAS
     except Exception:
-        selected_personas = []
+        parsed_personas = ALL_PROFESSOR_PERSONAS
 
     try:
         with open(file_path, "wb") as buffer:
@@ -228,9 +226,11 @@ async def upload_video(
                 },
             }
 
+        # 파싱된 페르소나 리스트를 안전하게 인자로 전달하여 호출하도록 교정 완료
         ai_result = await get_ai_presentation_feedback(
             script=script_text,
-            selected_personas=ALL_10_PERSONAS 
+            selected_personas=parsed_personas,
+            topic=presentation_topic
         )
         content_feedback = ai_result.get("content_feedback", {})
         content_score = ai_result.get("content_score", 0)
@@ -243,6 +243,8 @@ async def upload_video(
             user_nickname=current_user.email,
             stt_result=script_text,
             summary=ai_result.get("summary", ""),
+            content_critique=ai_result.get("content_critique", "내용 비평 데이터가 존재하지 않습니다."),
+            title=presentation_topic.strip() if presentation_topic else "대학 자유 주제 발표",
             persona_questions=ai_result.get("persona_questions", []),
             strength=content_feedback.get("strength", ""),
             weakness=content_feedback.get("weakness", ""),
@@ -261,6 +263,7 @@ async def upload_video(
         return {
             "message": "분석 완료",
             "record_id": new_record.id,
+            "title": new_record.title,
             "filename": file.filename,
             "video_url": f"http://127.0.0.1:8000/uploads/{unique_name}",
             "total_score": final_score,
@@ -291,6 +294,7 @@ async def upload_video(
             "script": {
                 "score": content_score,
                 "summary": ai_result.get("summary", ""),
+                "content_critique": ai_result.get("content_critique", "내용 비평 데이터가 존재하지 않습니다."),
                 "full_script": script_text,
                 "general_questions": ai_result.get("general_questions", []),
                 "persona_questions": ai_result.get("persona_questions", []),
@@ -414,10 +418,15 @@ async def get_analysis_result(file_id: str):
     return get_voice_result(file_id)
 
 
+# 독립적인 피드백 생성 테스트 API 라우터도 학교용 4인 체제로 깔끔하게 연동
 @app.post("/api/v1/ai/feedback")
-async def create_feedback(script: str):
+async def create_feedback(script: str, topic: str = "대학 자유 주제 발표"):
     try:
-        result = await get_ai_presentation_feedback(script=script, selected_personas=ALL_10_PERSONAS)
+        result = await get_ai_presentation_feedback(
+            script=script, 
+            selected_personas=ALL_PROFESSOR_PERSONAS,
+            topic=topic  # 인자 추가 동기화
+        )
         return {"status": "success", "data": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

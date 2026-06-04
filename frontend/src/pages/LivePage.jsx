@@ -313,9 +313,14 @@ function LivePage() {
       type: "video/webm",
     });
 
+    const savedSetup = JSON.parse(localStorage.getItem("presentationSetup")) || {};
+    const actualTopic = savedSetup.topic || "대학 자유 주제 발표";
+
     const formData = new FormData();
     formData.append("file", blob, "realtime_presentation.webm");
 
+    formData.append("presentation_topic", actualTopic);
+    
     const token = localStorage.getItem("token");
 
     fetch("http://127.0.0.1:8000/upload", {

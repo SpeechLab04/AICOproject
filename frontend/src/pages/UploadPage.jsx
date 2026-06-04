@@ -13,11 +13,9 @@ function UploadPage() {
 
   const API_BASE_URL = import.meta.env.VITE_API_URL;
 
-  const scenario =
-    JSON.parse(localStorage.getItem("selectedScenario")) || {
-      title: "학교 발표",
-    };
-
+  const savedSetup = JSON.parse(localStorage.getItem("presentationSetup")) || {};
+  const actualTopic = savedSetup.topic || "대학 자유 주제 발표";
+  
   const audiences = JSON.parse(localStorage.getItem("selectedAudiences")) || [];
 
   const audienceText =
@@ -60,6 +58,7 @@ function UploadPage() {
     const formData = new FormData();
     formData.append("file", selectedFile);
 
+    formData.append("presentation_topic", actualTopic);
     const selectedAudiences =
       JSON.parse(localStorage.getItem("selectedAudiences")) || [];
 
@@ -189,7 +188,7 @@ function UploadPage() {
           >
             <span>
               시나리오:{" "}
-              <strong style={{ color: "#2D3A3A" }}>{scenario.title}</strong>
+              <strong style={{ color: "#2D3A3A" }}>{actualTopic}</strong>
             </span>
             <span style={{ color: "#C8E4D6" }}>|</span>
             <span>

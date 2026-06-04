@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 class QuestionDetail(BaseModel):
     persona_type: str = Field(
         ..., 
-        description="심사위원 성향 ID (예: hr_manager, tech_developer, sharp_critic, distracted_troll 등 10종)"
+        description="교수님 성향 ID (mentor, press, troll, basic 4종)"
     )
     question: str = Field(..., description="생성된 질문 내용")
     intent: str = Field(..., description="대시보드 표출용 질문 생성 의도 및 역량 검증 목적")
@@ -16,7 +16,7 @@ class ContentFeedback(BaseModel):
 
 class FeedbackInput(BaseModel):
     script: str = Field(..., description="발표 스크립트")
-    selected_personas: List[str] = Field(default=["hr_manager"], description="선택된 심사위원 페르소나 리스트")
+    selected_personas: List[str] = Field(default=["mentor"], description="선택된 교수님 페르소나 리스트")
 
 class FeedbackOutput(BaseModel):
     summary: str = Field(..., description="발표 종합 요약")
