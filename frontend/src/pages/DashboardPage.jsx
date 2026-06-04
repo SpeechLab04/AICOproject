@@ -110,6 +110,7 @@ function DashboardPage() {
 
   const contentScore = analysisResult?.script?.score !== undefined ? analysisResult.script.score : 83;
   const scriptSummary = analysisResult?.script?.summary || "발표 내용 요약 결과입니다.";
+  const contentCritique = analysisResult?.script?.content_critique || "내용 비평 데이터를 불러올 수 없습니다.";
   const scriptText = analysisResult?.script?.full_script || "스크립트 결과가 없습니다.";
   const generalQuestions = analysisResult?.script?.general_questions || [];
   const personaQuestions = analysisResult?.script?.persona_questions || analysisResult?.script?.questions || [];
@@ -123,16 +124,10 @@ function DashboardPage() {
     : ["필러워드 사용을 줄여보세요", "답변 시 근거를 조금 더 보강해보세요", "핵심 키워드를 조금 더 강조해보세요"];
 
   const PERSONA_LABEL = {
-  hr_manager: "인사담당자",
-  tech_developer: "현직 개발자",
-  executive: "임원진",
-  academic_professor: "연구 중심 교수",
-  vc_investor: "창업 투자자(VC)",
-  product_marketer: "프로덕트 마케터",
-  peer_evaluator: "동료 평가자",
-  sharp_critic: "송곳형 평가위원",
-  distracted_troll: "고난도 질문위원",
-  conservative_elder: "보수적 꼰대위원",
+  mentor: "김멘토 교수님",
+  press: "이압박 교수님",
+  troll: "최트롤 교수님",
+  basic: "유기본 교수님",
 };
 
   const audienceQuestions = personaQuestions.map((q) => ({
@@ -151,7 +146,7 @@ function DashboardPage() {
             AI 발표 코칭 결과
           </h2>
           <p style={{ color: "#6B7C79", fontSize: isMobile ? "14px" : "18px" }}>
-            {scenario.title} · {new Date().toLocaleDateString()}
+            {analysisResult?.title || scenario.title || "대학 자유 주제 발표"} · {new Date().toLocaleDateString()}
           </p>
         </div>
 
@@ -328,6 +323,7 @@ function DashboardPage() {
           <ContentDetail
             score={contentScore}
             summary={scriptSummary}
+            contentCritique={contentCritique}
             generalQuestions={generalQuestions}
             audienceQuestions={audienceQuestions}
             scriptText={scriptText}

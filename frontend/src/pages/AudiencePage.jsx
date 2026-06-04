@@ -16,7 +16,7 @@ function AudiencePage() {
       level: "★★★★",
     },
     {
-      id: "pressure",
+      id: "press",
       name: "압박형",
       subtitle: "엄격하고 전문적인 청중",
       detail: "날카로운 질문과 반박으로 발표 내용을 꼼꼼히 검증합니다.",
