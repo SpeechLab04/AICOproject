@@ -66,6 +66,20 @@ function DashboardPage() {
   const videoTimeline = videoDashboard?.timeline || [];
 
   useEffect(() => {
+    // 연습 횟수 증가
+    const scenario = JSON.parse(localStorage.getItem("selectedScenario"));
+    if (scenario?.id && analysisResult?.record_id) {
+      const key = `practiceCount_${scenario.id}`;
+      const counted = localStorage.getItem(`practiceCount_recorded_${analysisResult.record_id}`);
+      if (!counted) {
+        const prev = parseInt(localStorage.getItem(key) || "0", 10);
+        localStorage.setItem(key, prev + 1);
+        localStorage.setItem(`practiceCount_recorded_${analysisResult.record_id}`, "1");
+      }
+    }
+  }, []);
+
+  useEffect(() => {
     const fileId = analysisResult?.voice?.file_id;
     if (!fileId) return;
 

@@ -40,6 +40,7 @@ class PresentationRecord(Base):
 
     # 기본값은 우선 빈칸으로 두고, 저장할 때 '발표연습#번호'가 들어가도록 main.py에서 가공
     title = Column(String, nullable=True)
+    scenario_id = Column(String, nullable=True)
     #  넘어오는 대시보드 그대로 받아 적을 칸을 만들어줍니다.
     video_url = Column(String, nullable=True)         # 영상 주소 칸
     practice_count = Column(Integer, nullable=True)   # 넘어온 연습 횟수 그대로 저장할 칸

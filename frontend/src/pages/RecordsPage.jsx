@@ -16,6 +16,11 @@ function RecordsPage() {
   const [page, setPage] = useState(1);
   const [editingId, setEditingId] = useState(null);
   const [editingTitle, setEditingTitle] = useState("");
+  const [filterScenario, setFilterScenario] = useState("all");
+
+  const SCENARIO_LABELS = {
+    school: "학교 발표",
+  };
 
   useEffect(() => {
     fetchRecords();
@@ -141,8 +146,14 @@ function RecordsPage() {
     }
   };
 
-  const totalPages = Math.ceil(records.length / PAGE_SIZE);
-  const pagedRecords = records.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const scenarioIds = ["all", ...new Set(records.map((r) => r.scenario_id).filter(Boolean))];
+
+  const filteredRecords = filterScenario === "all"
+    ? records
+    : records.filter((r) => r.scenario_id === filterScenario);
+
+  const totalPages = Math.ceil(filteredRecords.length / PAGE_SIZE);
+  const pagedRecords = filteredRecords.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div style={{ minHeight: "100vh", background: "#F8FCFA", color: "#2F3E46" }}>
@@ -174,6 +185,31 @@ function RecordsPage() {
             )}
           </div>
         </div>
+
+        {/* 시나리오 필터 탭 */}
+        {scenarioIds.length > 1 && (
+          <div style={{ display: "flex", gap: "8px", marginBottom: "16px", flexWrap: "wrap" }}>
+            {scenarioIds.map((id) => (
+              <button
+                key={id}
+                onClick={() => { setFilterScenario(id); setPage(1); }}
+                style={{
+                  padding: "8px 18px",
+                  borderRadius: "12px",
+                  border: `2px solid ${filterScenario === id ? "#6BB5A6" : "#E0EDEA"}`,
+                  background: filterScenario === id ? "#E5F4EF" : "white",
+                  color: filterScenario === id ? "#4D8F82" : "#5C706C",
+                  fontWeight: "700",
+                  fontSize: "14px",
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                }}
+              >
+                {id === "all" ? "전체" : (SCENARIO_LABELS[id] || id)}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* 기록 목록 */}
         <div style={{
