@@ -154,6 +154,26 @@ def verify_fillers_with_llm(full_text, potential_fillers):
         return potential_fillers
 
 
+def calculate_voice_score(wpm, vibrancy_score, filler_count):
+    # 말하기 속도 점수 (100~135wpm이 최적)
+    if 100 <= wpm <= 135:
+        wpm_score = 100
+    elif 80 <= wpm < 100 or 135 < wpm <= 160:
+        wpm_score = 70
+    elif wpm > 0:
+        wpm_score = 40
+    else:
+        wpm_score = 0
+
+    # 습관어 감점 (1개당 5점, 최대 40점 감점)
+    filler_penalty = min(filler_count * 5, 40)
+    filler_score = max(100 - filler_penalty, 60)
+
+    # 가중 평균: 속도 40% + 생동감 35% + 습관어 25%
+    voice_score = round(wpm_score * 0.4 + vibrancy_score * 0.35 + filler_score * 0.25)
+    return int(np.clip(voice_score, 0, 100))
+
+
 def get_wpm_feedback(wpm):
 
     if wpm < 80:
@@ -327,6 +347,7 @@ def run_detailed_analysis(
         ) if speech_duration > 0 else 0
 
         wpm_eval = get_wpm_feedback(wpm)
+        voice_score = calculate_voice_score(wpm, vibrancy_score, len(verified_fillers))
 
         analysis_results[file_id] = {
             "success": True,
@@ -334,6 +355,7 @@ def run_detailed_analysis(
             "summary": {
                 "wpm": wpm,
                 "vibrancy_score": vibrancy_score,
+                "voice_score": voice_score,
                 "status": wpm_eval["status"],
                 "color": wpm_eval["color"],
                 "feedback": wpm_eval["feedback"],
@@ -448,8 +470,7 @@ def process_voice_analysis(
                 "text": get_segment_value(s, "text", "")
             })
 
-        background_tasks.add_task(
-            run_detailed_analysis,
+        run_detailed_analysis(
             file_id,
             full_text,
             segments_data,
@@ -457,12 +478,14 @@ def process_voice_analysis(
             audio_temp_path
         )
 
+        detail = analysis_results.get(file_id, {})
         return {
             "success": True,
             "file_id": file_id,
             "full_script": full_text,
-            "message": "스크립트 추출 완료. 세부 분석 진행 중.",
-            "duration_sec": round(duration_sec, 1)
+            "message": "분석 완료",
+            "duration_sec": round(duration_sec, 1),
+            **detail,
         }
 
     except Exception as e:

@@ -66,16 +66,39 @@ function DashboardPage() {
   const videoTimeline = videoDashboard?.timeline || [];
 
   useEffect(() => {
-    const fetchVoiceDetail = async () => {
-      const fileId = analysisResult?.voice?.file_id;
-      if (!fileId) return;
+    // 연습 횟수 증가
+    const scenario = JSON.parse(localStorage.getItem("selectedScenario"));
+    if (scenario?.id && analysisResult?.record_id) {
+      const key = `practiceCount_${scenario.id}`;
+      const counted = localStorage.getItem(`practiceCount_recorded_${analysisResult.record_id}`);
+      if (!counted) {
+        const prev = parseInt(localStorage.getItem(key) || "0", 10);
+        localStorage.setItem(key, prev + 1);
+        localStorage.setItem(`practiceCount_recorded_${analysisResult.record_id}`, "1");
+      }
+    }
+  }, []);
 
+  useEffect(() => {
+    const fileId = analysisResult?.voice?.file_id;
+    if (!fileId) return;
+
+    // 이미 summary가 있으면 폴링 불필요
+    if (analysisResult?.voice?.summary) {
+      setVoiceDetailResult(analysisResult.voice);
+      return;
+    }
+
+    const fetchVoiceDetail = async () => {
       try {
-        const response = await fetch(`http://127.0.0.1:8000/result/${fileId}`);
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/result/${fileId}`);
         const data = await response.json();
 
         if (data.status === "processing") return;
-        if (data.success) setVoiceDetailResult(data);
+        if (data.success) {
+          setVoiceDetailResult(data);
+          clearInterval(timer);
+        }
       } catch (error) {
         console.error("음성 상세 분석 조회 실패:", error);
       }
@@ -101,6 +124,7 @@ function DashboardPage() {
 
   const contentScore = analysisResult?.script?.score !== undefined ? analysisResult.script.score : 83;
   const scriptSummary = analysisResult?.script?.summary || "발표 내용 요약 결과입니다.";
+  const contentCritique = analysisResult?.script?.content_critique || "내용 비평 데이터를 불러올 수 없습니다.";
   const scriptText = analysisResult?.script?.full_script || "스크립트 결과가 없습니다.";
   const generalQuestions = analysisResult?.script?.general_questions || [];
   const personaQuestions = analysisResult?.script?.persona_questions || analysisResult?.script?.questions || [];
@@ -114,15 +138,16 @@ function DashboardPage() {
     : ["필러워드 사용을 줄여보세요", "답변 시 근거를 조금 더 보강해보세요", "핵심 키워드를 조금 더 강조해보세요"];
 
   const PERSONA_LABEL = {
-    mentor: "멘토형",
-    press: "압박형",
-    troll: "트롤형",
-    basic: "기본형",
-  };
+  mentor: "김멘토 교수님",
+  press: "이압박 교수님",
+  troll: "최트롤 교수님",
+  basic: "유기본 교수님",
+};
 
   const audienceQuestions = personaQuestions.map((q) => ({
     audience: PERSONA_LABEL[q.persona_type] || q.persona_type,
     question: q.question,
+    intent: q.intent || "질문 의도를 분석 중입니다."
   }));
 
   return (
@@ -135,7 +160,7 @@ function DashboardPage() {
             AI 발표 코칭 결과
           </h2>
           <p style={{ color: "#6B7C79", fontSize: isMobile ? "14px" : "18px" }}>
-            {scenario.title} · {new Date().toLocaleDateString()}
+            {analysisResult?.title || scenario.title || "대학 자유 주제 발표"} · {new Date().toLocaleDateString()}
           </p>
         </div>
 
@@ -312,6 +337,7 @@ function DashboardPage() {
           <ContentDetail
             score={contentScore}
             summary={scriptSummary}
+            contentCritique={contentCritique}
             generalQuestions={generalQuestions}
             audienceQuestions={audienceQuestions}
             scriptText={scriptText}

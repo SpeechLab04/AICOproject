@@ -14,7 +14,7 @@ import { useIsMobile } from "../hooks/useIsMobile";
 
 function MyPage() {
   const navigate = useNavigate();
-  const API_BASE_URL = "http://127.0.0.1:8000";
+  const API_BASE_URL = import.meta.env.VITE_API_URL;
   const isMobile = useIsMobile();
 
   const [records, setRecords] = useState([]);

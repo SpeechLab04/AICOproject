@@ -199,7 +199,7 @@ function ScenarioPage() {
               >
                 지금까지 연습한 횟수{" "}
                 <strong style={{ color: "#6BB5A6" }}>
-                  {scenario.practiceCount}회
+                  {parseInt(localStorage.getItem(`practiceCount_${scenario.id}`) || "0", 10)}회
                 </strong>
               </div>
 

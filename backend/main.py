@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 from dotenv import load_dotenv
 import traceback
+from typing import List
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATABASE_DIR = BASE_DIR / "database"
@@ -55,6 +56,13 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
+# 🎓 학교 상황에 맞춘 교수님 심사위원 4인 키 정의
+ALL_PROFESSOR_PERSONAS = [
+    "mentor",  # 멘토형 (친절하고 전문적인 교수님)
+    "press",   # 압박형 (까다롭고 날카로운 전문가 교수님)
+    "troll",   # 트롤형 (무성의하고 맥락 없는 교수님)
+    "basic"    # 기본형 (친절하지만 원론적인 교수님)
+]
 
 @app.get("/")
 def read_root():
@@ -118,6 +126,10 @@ async def upload_video(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     selected_personas: str = Form("[]"),
+    presentation_topic: str = Form("대학 자유 주제 발표"),
+    scenario_id: str = Form(""),
+    presentation_material: str = Form(""),
+    presentation_script_text: str = Form(""),
     db: Session = Depends(database.get_db),
     current_user: models.UserModel = Depends(auth.get_current_user),
 ):
@@ -126,10 +138,13 @@ async def upload_video(
     unique_name = f"{int(_time.time())}_{file.filename}"
     file_path = os.path.join(UPLOAD_DIR, unique_name)
 
+    #  프론트에서 넘어온 페르소나 파싱 가드 처리 및 폴백 적용
     try:
-        selected_personas = json.loads(selected_personas)
+        parsed_personas = json.loads(selected_personas)
+        if not isinstance(parsed_personas, list) or not parsed_personas:
+            parsed_personas = ALL_PROFESSOR_PERSONAS
     except Exception:
-        selected_personas = []
+        parsed_personas = ALL_PROFESSOR_PERSONAS
 
     try:
         with open(file_path, "wb") as buffer:
@@ -214,21 +229,28 @@ async def upload_video(
                 },
             }
 
+        # 파싱된 페르소나 리스트를 안전하게 인자로 전달하여 호출하도록 교정 완료
         ai_result = await get_ai_presentation_feedback(
             script=script_text,
-            selected_personas=selected_personas
+            selected_personas=parsed_personas,
+            topic=presentation_topic or "대학 자유 주제 발표",
+            material=presentation_material,
+            presentation_script=presentation_script_text,
         )
-
         content_feedback = ai_result.get("content_feedback", {})
         content_score = ai_result.get("content_score", 0)
         delivery_score = vision_result.get("delivery_score", 0)
-        final_score = ai_result.get("final_score", 0)
+        voice_score = speech_result.get("summary", {}).get("voice_score", 0)
+        final_score = round((content_score + delivery_score + voice_score) / 3)
 
         new_record = models.PresentationRecord(
             user_id=current_user.id,
             user_nickname=current_user.email,
             stt_result=script_text,
             summary=ai_result.get("summary", ""),
+            content_critique=ai_result.get("content_critique", "내용 비평 데이터가 존재하지 않습니다."),
+            title=presentation_topic.strip() if presentation_topic and presentation_topic.strip() else None,
+            scenario_id=scenario_id or None,
             persona_questions=ai_result.get("persona_questions", []),
             strength=content_feedback.get("strength", ""),
             weakness=content_feedback.get("weakness", ""),
@@ -244,9 +266,15 @@ async def upload_video(
         db.commit()
         db.refresh(new_record)
 
+        if not new_record.title:
+            new_record.title = f"학교발표#{new_record.id}"
+            db.commit()
+            db.refresh(new_record)
+
         return {
             "message": "분석 완료",
             "record_id": new_record.id,
+            "title": new_record.title,
             "filename": file.filename,
             "video_url": f"http://127.0.0.1:8000/uploads/{unique_name}",
             "total_score": final_score,
@@ -265,9 +293,9 @@ async def upload_video(
                 "video_dashboard": vision_result.get("video_dashboard", {}),
             },
             "voice": {
-                "score": 0,
-                "speed_wpm": 0,
-                "filler_count": 0,
+                "score": voice_score,
+                "speed_wpm": speech_result.get("summary", {}).get("wpm", 0),
+                "filler_count": speech_result.get("speech_habits", {}).get("filler_count", 0),
                 "feedback": speech_result.get(
                     "message",
                     "음성 세부 분석 진행 중입니다."
@@ -277,6 +305,7 @@ async def upload_video(
             "script": {
                 "score": content_score,
                 "summary": ai_result.get("summary", ""),
+                "content_critique": ai_result.get("content_critique", "내용 비평 데이터가 존재하지 않습니다."),
                 "full_script": script_text,
                 "general_questions": ai_result.get("general_questions", []),
                 "persona_questions": ai_result.get("persona_questions", []),
@@ -336,6 +365,37 @@ def get_record_detail(
     return record
 
 
+@app.patch("/records/{record_id}", response_model=schemas.TitleUpdateResponse)
+def update_record_title(
+    record_id: int,
+    request: schemas.TitleUpdateRequest,
+    db: Session = Depends(database.get_db),
+    current_user: models.UserModel = Depends(auth.get_current_user),
+):
+    record = (
+        db.query(models.PresentationRecord)
+        .filter(
+            models.PresentationRecord.id == record_id,
+            models.PresentationRecord.user_id == current_user.id,
+        )
+        .first()
+    )
+
+    if not record:
+        raise HTTPException(status_code=404, detail="기록을 찾을 수 없습니다.")
+
+    record.title = request.title
+    db.commit()
+    db.refresh(record)
+
+    return {
+        "status": "success",
+        "message": "제목이 수정되었습니다.",
+        "record_id": record_id,
+        "updated_title": record.title,
+    }
+
+
 @app.delete("/records/{record_id}", response_model=schemas.DeleteResponse)
 def delete_record(
     record_id: int,
@@ -369,10 +429,15 @@ async def get_analysis_result(file_id: str):
     return get_voice_result(file_id)
 
 
+# 독립적인 피드백 생성 테스트 API 라우터도 학교용 4인 체제로 깔끔하게 연동
 @app.post("/api/v1/ai/feedback")
-async def create_feedback(script: str):
+async def create_feedback(script: str, topic: str = "대학 자유 주제 발표"):
     try:
-        result = await get_ai_presentation_feedback(script=script)
+        result = await get_ai_presentation_feedback(
+            script=script, 
+            selected_personas=ALL_PROFESSOR_PERSONAS,
+            topic=topic  # 인자 추가 동기화
+        )
         return {"status": "success", "data": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

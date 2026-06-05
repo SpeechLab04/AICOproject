@@ -157,6 +157,7 @@ function ContentDetail({
         )}
       </section>
 
+      {/* 🎯 여기 청중별 질문 코드를 교체 수정했습니다 */}
       <section style={cardStyle}>
         <h3 style={sectionTitle}>
           <MessageSquare size={28} color="#6BB5A6" />
@@ -167,14 +168,37 @@ function ContentDetail({
           audienceQuestions.map((item, index) => (
             <div
               key={index}
-              style={{ background: "#F8FCFA", borderRadius: "20px", padding: "22px", marginBottom: "16px" }}
+              style={{ 
+                background: "#F8FCFA", 
+                borderRadius: "20px", 
+                padding: "22px", 
+                marginBottom: "16px",
+                border: "1px solid #EFF6F4" 
+              }}
             >
               <strong style={{ display: "block", color: "#6BB5A6", fontSize: fs.label, marginBottom: "8px" }}>
                 {item.audience}
               </strong>
-              <p style={{ color: "#2D3A3A", fontSize: fs.label, lineHeight: "1.7" }}>
+              <p style={{ color: "#2D3A3A", fontSize: fs.label, lineHeight: "1.7", marginBottom: item.intent ? "14px" : "0" }}>
                 {item.question}
               </p>
+
+              {/* 💡 질문 의도(Intent) 표출 박스 추가 레이어 */}
+              {item.intent && (
+                <div 
+                  style={{ 
+                    background: "#EEF8F4", 
+                    padding: "14px 18px", 
+                    borderRadius: "14px", 
+                    borderLeft: "4px solid #9BC870",
+                    marginTop: "4px"
+                  }}
+                >
+                  <p style={{ fontSize: "14px", color: "#58706D", margin: 0, lineHeight: "1.6", wordBreak: "keep-all" }}>
+                    💡 <strong>질문 의도:</strong> {item.intent}
+                  </p>
+                </div>
+              )}
             </div>
           ))
         ) : (

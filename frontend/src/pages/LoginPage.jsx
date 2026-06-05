@@ -34,7 +34,7 @@ function LoginPage() {
       // 회원가입
       if (mode === "signup") {
         const signupResponse = await fetch(
-          "http://127.0.0.1:8000/auth/register",
+          `${import.meta.env.VITE_API_URL}/auth/register`,
           {
             method: "POST",
             headers: {
@@ -62,7 +62,7 @@ function LoginPage() {
       formData.append("password", password);
 
       const loginResponse = await fetch(
-        "http://127.0.0.1:8000/auth/login",
+        `${import.meta.env.VITE_API_URL}/auth/login`,
         {
           method: "POST",
           headers: {
