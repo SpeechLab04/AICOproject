@@ -43,6 +43,14 @@ function LivePage() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [isAnswering, setIsAnswering] = useState(false);
 
+  const [isProcessingAnswer, setIsProcessingAnswer] = useState(false);
+  const [qaAnswers, setQaAnswers] = useState([]);
+  
+
+  const answerRecorderRef = useRef(null);
+  const answerChunksRef = useRef([]);
+  const qaAnswersRef = useRef([]);
+  
   const currentQuestion = generatedQuestions[currentQuestionIndex];
 
   // 페이지 진입 시 이전 분석 결과 초기화
@@ -289,6 +297,16 @@ function LivePage() {
 
 
   const uploadAndNavigate = () => {
+    localStorage.setItem(
+      "qaAnswers",
+      JSON.stringify(qaAnswersRef.current)
+    );
+
+    console.log(
+      "최종 QA =",
+      qaAnswersRef.current
+    );
+    
     setRemainingTime(null); // 타이머 중지
 
     try {
@@ -359,6 +377,11 @@ function LivePage() {
   };
 
   const handleNextQuestion = () => {
+
+    if (isProcessingAnswer) {
+      alert("답변 분석이 끝날 때까지 기다려주세요.");
+      return;
+    }
     if (currentQuestionIndex < generatedQuestions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
       setIsAnswering(false);
@@ -367,8 +390,96 @@ function LivePage() {
     }
   };
 
+  const startAnswerRecording = async () => {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+    });
+
+    answerChunksRef.current = [];
+
+    const recorder = new MediaRecorder(stream);
+
+    answerRecorderRef.current = recorder;
+
+    recorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        answerChunksRef.current.push(event.data);
+      }
+    };
+
+    recorder.start();
+
+    setIsAnswering(true);
+
+    console.log("답변 녹음 시작");
+  } catch (error) {
+    console.error("마이크 접근 오류:", error);
+  }
+};
+
+const stopAnswerRecording = () => {
+  const recorder = answerRecorderRef.current;
+
+  if (!recorder) return;
+
+  recorder.stop();
+
+  recorder.onstop = async () => {
+
+    setIsProcessingAnswer(true);
+    const blob = new Blob(
+      answerChunksRef.current,
+      {
+        type: "audio/webm",
+      }
+    );
+
+    const formData = new FormData();
+
+    formData.append(
+      "file",
+      blob,
+      "answer.webm"
+    );
+
+    const res = await fetch(
+      "http://127.0.0.1:8000/stt-answer",
+      {
+        method: "POST",
+        body: formData,
+      }
+    );
+
+    const data = await res.json();
+
+    console.log("답변 STT =", data);
+
+    const newAnswer = {
+      question: currentQuestion.question,
+      audience: currentQuestion.audience,
+      answer: data.transcript,
+    };
+
+    qaAnswersRef.current = [
+      ...qaAnswersRef.current,
+      newAnswer,
+    ];
+
+    setQaAnswers(qaAnswersRef.current);
+    setIsProcessingAnswer(false);
+  };
+
+  setIsAnswering(false);
+};
+
   // 건너뛰기: 바로 결과로 이동
   const handleSkip = () => {
+
+    if (isProcessingAnswer) {
+      alert("답변 분석이 끝날 때까지 기다려주세요.");
+      return;
+    }
     uploadAndNavigate();
   };
 
@@ -823,7 +934,13 @@ function LivePage() {
                 </div>
 
                 <button
-                  onClick={() => setIsAnswering(!isAnswering)}
+                  onClick={() => {
+                    if (!isAnswering) {
+                      startAnswerRecording();
+                    } else {
+                      stopAnswerRecording();
+                    }
+                  }}
                   style={mainButtonStyle}
                 >
                   {isAnswering ? "답변 종료하기" : "답변 시작하기"}
@@ -852,7 +969,11 @@ function LivePage() {
 
                   <button
                     onClick={handleNextQuestion}
-                    style={subButtonStyle}
+                    disabled={isProcessingAnswer}
+                    style={{
+                      ...subButtonStyle,
+                      opacity: isProcessingAnswer ? 0.5 : 1,
+                    }}
                   >
                     {currentQuestionIndex === generatedQuestions.length - 1
                       ? "질의응답 종료"

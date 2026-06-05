@@ -30,7 +30,11 @@ import database
 import models
 import auth
 import schemas
-from speech.speech_processor import process_voice_analysis, get_voice_result
+from speech.speech_processor import (
+    process_voice_analysis,
+    get_voice_result,
+    transcribe_answer,
+)
 from llm.app.services.ai_feedback import get_ai_presentation_feedback
 from vision_service import analyze_vision
 
@@ -441,3 +445,18 @@ async def create_feedback(script: str, topic: str = "대학 자유 주제 발표
         return {"status": "success", "data": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+@app.post("/stt-answer")
+async def stt_answer(
+    file: UploadFile = File(...)
+):
+
+    result = transcribe_answer(file)
+
+    if not result["success"]:
+        raise HTTPException(
+            status_code=500,
+            detail=result["error"]
+        )
+
+    return result
