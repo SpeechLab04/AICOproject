@@ -57,6 +57,7 @@ function LivePage() {
   useEffect(() => {
     localStorage.removeItem("analysisResult");
     localStorage.removeItem("uploadedVideoUrl");
+    localStorage.removeItem("generatedQuestions");
   }, []);
 
   // 전체화면 상태 감지
@@ -284,6 +285,10 @@ function LivePage() {
       console.log("질문 생성 결과 =", data);
 
       setGeneratedQuestions(data.questions);
+      localStorage.setItem(
+        "generatedQuestions",
+        JSON.stringify(data.questions)
+      );
       setIsAnalyzing(false);
       setPresentationEnded(true);
       stopCamera();
