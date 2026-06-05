@@ -14,6 +14,10 @@ function ScenarioDetailPage() {
       practiceCount: 0,
     };
 
+  const practiceCount = parseInt(
+    localStorage.getItem(`practiceCount_${scenario.id}`) || "0", 10
+  );
+
   const goals = [
     "명확한 발표 내용 전달",
     "적절한 시간 관리",
@@ -55,7 +59,7 @@ function ScenarioDetailPage() {
                 textAlign: "center",
             }}
             >
-            <InfoItem icon={<BarChart3 size={28} color="#6BB5A6" />} value={`${scenario.practiceCount || 0}`} label="연습 횟수" />
+            <InfoItem icon={<BarChart3 size={28} color="#6BB5A6" />} value={`${practiceCount}`} label="연습 횟수" />
             <InfoItem icon={<Clock size={28} color="#94CDD8" />} value="5-10분" label="권장 시간" />
           </div>
         </section>
@@ -77,7 +81,7 @@ function ScenarioDetailPage() {
         </section>
 
         <button
-          onClick={() => navigate("/audience")}
+          onClick={() => navigate("/presentation-setup")}
           onMouseEnter={(e) => {
             e.currentTarget.style.transform = "translateY(-5px)";
             e.currentTarget.style.boxShadow =

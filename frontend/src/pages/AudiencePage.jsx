@@ -1,12 +1,9 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 
 function AudiencePage() {
   const navigate = useNavigate();
   const isMobile = window.innerWidth < 768;
-
-  const [selectedAudiences, setSelectedAudiences] = useState([]);
 
   const audienceTypes = [
     {
@@ -19,7 +16,7 @@ function AudiencePage() {
       level: "★★★★",
     },
     {
-      id: "pressure",
+      id: "press",
       name: "압박형",
       subtitle: "엄격하고 전문적인 청중",
       detail: "날카로운 질문과 반박으로 발표 내용을 꼼꼼히 검증합니다.",
@@ -47,33 +44,8 @@ function AudiencePage() {
     },
   ];
 
-  const handleSelect = (audience) => {
-    const alreadySelected = selectedAudiences.some(
-      (item) => item.id === audience.id
-    );
-
-    if (alreadySelected) {
-      setSelectedAudiences(
-        selectedAudiences.filter((item) => item.id !== audience.id)
-      );
-      return;
-    }
-
-    if (selectedAudiences.length >= 4) {
-      alert("청중은 최대 4명까지 선택할 수 있습니다.");
-      return;
-    }
-
-    setSelectedAudiences([...selectedAudiences, audience]);
-  };
-
   const handleNext = () => {
-    if (selectedAudiences.length === 0) {
-      alert("청중을 최소 1명 이상 선택해주세요.");
-      return;
-    }
-
-    localStorage.setItem("selectedAudiences", JSON.stringify(selectedAudiences));
+    localStorage.setItem("selectedAudiences", JSON.stringify(audienceTypes));
     navigate("/practice-mode");
   };
 
@@ -112,7 +84,7 @@ function AudiencePage() {
               fontSize: isMobile ? "13px" : "16px",
             }}
           >
-            청중 설정
+            청중 소개
           </div>
 
           <h2
@@ -124,7 +96,7 @@ function AudiencePage() {
               lineHeight: "1.2",
             }}
           >
-            발표를 들을 청중을 선택하세요
+            발표를 들을 청중이 제공됩니다
           </h2>
 
           <p
@@ -135,18 +107,7 @@ function AudiencePage() {
               wordBreak: "keep-all",
             }}
           >
-            원하는 청중 유형을 선택하세요. 최대 4명까지 선택할 수 있습니다.
-          </p>
-
-          <p
-            style={{
-              marginTop: "14px",
-              color: "#6BB5A6",
-              fontSize: isMobile ? "15px" : "17px",
-              fontWeight: "800",
-            }}
-          >
-            선택된 청중 {selectedAudiences.length}/4명
+            다양한 유형의 청중 앞에서 발표를 연습해보세요.
           </p>
         </div>
 
@@ -161,42 +122,22 @@ function AudiencePage() {
           }}
         >
           {audienceTypes.map((audience) => {
-            const isSelected = selectedAudiences.some(
-              (item) => item.id === audience.id
-            );
-
             return (
               <div
                 key={audience.id}
-                onClick={() => handleSelect(audience)}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = "translateY(-6px)";
-                  e.currentTarget.style.boxShadow =
-                    "0 18px 38px rgba(0,0,0,0.12)";
-                }}
-
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "translateY(0)";
-                  e.currentTarget.style.boxShadow =
-                    "0 10px 30px rgba(0,0,0,0.05)";
-                }}
                 style={{
-                  background: isSelected ? audience.bg : "white",
+                  background: "white",
                   borderRadius: "28px",
                   padding: isMobile ? "26px 24px" : "34px",
                   boxShadow: "0 10px 30px rgba(0,0,0,0.05)",
-                  border: `2px solid ${
-                    isSelected ? audience.color : audience.bg
-                  }`,
-                  cursor: "pointer",
-                  transform: "translateY(0)",
+                  border: `2px solid ${audience.bg}`,
                   transition: "all 0.18s ease",
                 }}
               >
                 <div
                   style={{
                     display: "inline-block",
-                    background: isSelected ? "white" : audience.bg,
+                    background: audience.bg,
                     color: audience.color,
                     padding: "8px 16px",
                     borderRadius: "999px",

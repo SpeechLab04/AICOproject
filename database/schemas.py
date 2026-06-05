@@ -1,20 +1,18 @@
 from pydantic import BaseModel, ConfigDict, Field, EmailStr
 from typing import Optional, Dict, Any, List
 from datetime import datetime
-from pydantic import BaseModel, EmailStr
 
-# 📝 1. 손님이 회원가입할 때 작성해 올 '신청서' 양식이에요.
+#  1. 손님이 회원가입할 때 작성해 올 '신청서' 양식
 class UserCreate(BaseModel):
-    # EmailStr을 쓰면 "@"가 빠졌거나 주소가 이상할 때 컴퓨터가 알아서 "이메일 형식이 아니잖아!" 하고 거절해요.
     email: EmailStr  
-    password: str    # 유저가 비밀번호로 쓰고 싶다고 입력한 글자
+    password: str    
 
-# 🎫 2. 로그인을 무사히 통과한 유저에게 들려 보낼 '출입증(토큰)' 양식이에요.
+#  2. 로그인을 무사히 통과한 유저에게 들려 보낼 '출입증(토큰)' 양식
 class Token(BaseModel):
-    access_token: str  # 엄청 복잡하게 암호화된 가짜 출입증 문자열
-    token_type: str    # 토큰의 종류 (우리는 표준인 'bearer'를 써요)
+    access_token: str  
+    token_type: str    
 
-# --- 아래는 기존에 사용하던 발표 관련 신청서/확인증 양식들이에요 ---
+# --- 발표 관련 신청서/확인증 양식들 ---
 class QuestionDetail(BaseModel):
     persona_type: str
     question: str
@@ -23,17 +21,38 @@ class AnalyzeRequest(BaseModel):
     text_input: str
     user_nickname: str = "Guest User"
     selected_personas: List[str] = Field(default_factory=lambda: ["basic"])
-
+    video_url: Optional[str] = None
+    practice_count: Optional[int] = None
+    
 class AnalyzeResponse(BaseModel):
     status: str
     record_id: int
     feedback: str
     analysis_summary: Dict[str, Any]
 
+class TitleUpdateRequest(BaseModel):
+    title: str = Field(..., max_length=100, description="변경할 새로운 발표 기록 제목")
+
+class TitleUpdateResponse(BaseModel):
+    status: str
+    message: str
+    record_id: int
+    updated_title: str
+    
 class RecordResponse(BaseModel):
     id: int
     user_nickname: str
+    title: Optional[str] = None
+    scenario_id: Optional[str] = None
+    video_url: Optional[str] = None
+    practice_count: Optional[int] = None
+    
     summary: Optional[str] = None
+    
+    #  [추가] DB(models.py)에 추가한 content_critique 컬럼과 
+    # 프론트엔드 대시보드를 에러 없이 연결해 주는 징검다리 필드입니다.
+    content_critique: Optional[str] = None
+    
     persona_questions: Any = Field(default_factory=list)
     strength: Optional[Any] = None
     weakness: Optional[Any] = None
@@ -47,7 +66,7 @@ class RecordResponse(BaseModel):
     visual_analysis: Optional[Dict[str, Any]] = None
 
     model_config = ConfigDict(from_attributes=True)
-
+    
 class DeleteResponse(BaseModel):
     status: str
     message: str

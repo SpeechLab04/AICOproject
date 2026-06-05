@@ -5,15 +5,15 @@ from fastapi import Depends, FastAPI, HTTPException
 from sqlalchemy.orm import Session
 
 # =========================================================================
-# [1단계: 📁 다른 폴더에 있는 비밀 도구(코드)들 내 방으로 불러오기]
+# [1단계: 다른 폴더에 있는 비밀 도구(코드)들 내 방으로 불러오기]
 # =========================================================================
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
-import database  # 🤵 데이터베이스 연결 상담원
-import models    # 📊 데이터베이스 서랍장 양식
-import schemas   # 📄 프론트엔드와 주고받을 신청서/확인증 규격
+import database  # 데이터베이스 연결 상담원
+import models    # 데이터베이스 서랍장 양식
+import schemas   # 프론트엔드와 주고받을 신청서/확인증 규격
 
 # 🔒 [보안 업그레이드!] database 폴더 안에 새로 만든 철통 자물쇠(auth.py)를 불러와요!
 import auth  
@@ -23,7 +23,7 @@ try:
     from llm.app.services.ai_feedback import get_ai_presentation_feedback
     from llm.app.services.scoring import calculate_final_score
 except ImportError as e:
-    raise ImportError(f"❌ llm 폴더 안의 AI 분석 모듈을 불러오지 못했습니다: {e}")
+    raise ImportError(f"llm 폴더 안의 AI 분석 모듈을 불러오지 못했습니다: {e}")
 
 # 서버가 켜질 때, 양식(models)대로 데이터베이스에 새 테이블들을 자동으로 만들거나 업데이트해요.
 models.Base.metadata.create_all(bind=database.engine)
@@ -34,47 +34,51 @@ app = FastAPI(title="AICO AI Presentation Coaching Service (Secure Version)")
 # =========================================================================
 # 🔗 [보안 핵심 연결] auth.py에 만든 '회원가입/로그인 창구'를 메인 서비스에 합체!
 # =========================================================================
-# 이렇게 해두면 프론트엔드에서 /auth/register, /auth/login 주소로 찾아올 수 있어요.
 app.include_router(auth.router)
 
 
 # =========================================================================
-# [2단계: 🎯 1번 통로 - 발표 분석하고 로그인한 '내 계정 서랍'에 저장하기]
+# [2단계: 1번 통로 - 발표 분석하고 로그인한 '내 계정 서랍'에 저장하기]
 # =========================================================================
 @app.post("/analyze", response_model=schemas.AnalyzeResponse)
 async def analyze_and_save(
     request: schemas.AnalyzeRequest,          
     db: Session = Depends(database.get_db),
-    # 🔒 [자물쇠 장착!] 로그인을 안 하고 토큰 없이 들어오면 경비원(get_current_user)이 바로 쫓아내요.
     current_user: models.UserModel = Depends(auth.get_current_user) 
 ):
     """
-    AI가 발표 대본을 분석해 준 뒤, 로그인한 '진짜 내 계정 고유 번호' 아래에 보관해요.
+    종합 체크 후 완성된 대시보드 데이터를 전달받아, 
+    영상 주소와 연습 횟수를 있는 그대로 안전하게 기록 보관합니다.
     """
     try:
-        # 🤖 AI 마법 작동!
+        # 🎯 [수정 1] AI 서비스 호출 시 기본값이나 들어온 텍스트가 있다면 주제(topic)로 패스
         ai_result = await get_ai_presentation_feedback(
             script=request.text_input,
-            selected_personas=request.selected_personas
+            selected_personas=request.selected_personas,
+            topic="대학 자유 주제 발표"  # 텍스트 모드 기반 기본 폴백 세팅
         )
-
-        # 🎤 목소리와 시선 분석 더미 데이터
         voice_res = {"wpm": 150, "filler_count": 2}                  
         visual_res = {"head_pose_score": 80, "eye_contact_score": 90}  
         d_score = 85.0                                                
-
-        # 🧮 점수 계산
         c_score = float(ai_result.get("content_score", 0.0))
         f_score = calculate_final_score(c_score, d_score)
         content_fb = ai_result.get("content_feedback", {})
 
-        # 📝 [새 기록지 작성] 이제 유저 닉네임만 대충 적는 게 아니라, 
-        # 로그인 검증을 무사히 통과한 유저의 진짜 번호(`user_id=current_user.id`)를 박아 넣습니다!
+        # [대시보드 기록 이관] 
         new_record = models.PresentationRecord(
-            user_id=current_user.id,              # 🔑 진짜 주인 번호표를 딱 새겨줍니다!
+            user_id=current_user.id,              
             user_nickname=request.user_nickname,  
+            video_url=request.video_url,          
+            practice_count=request.practice_count, 
+            
+            title=request.presentation_topic.strip() if request.presentation_topic else "대학 자유 주제 발표",
+            
             stt_result=request.text_input,        
             summary=ai_result.get("summary", ""), 
+            
+            # 새롭게 개설한 비평 서랍장 칸 매핑 누락 방지 (DB 폭발 예방 완료)
+            content_critique=ai_result.get("content_critique", "내용 비평 데이터가 존재하지 않습니다."),
+            
             persona_questions=ai_result.get("persona_questions", []), 
             strength=content_fb.get("strength", ""),      
             weakness=content_fb.get("weakness", ""),      
@@ -87,7 +91,7 @@ async def analyze_and_save(
         )
 
         db.add(new_record)     
-        db.commit()            # 책장 문 쾅! 영구 저장 완료!
+        db.commit()            
         db.refresh(new_record) 
 
         return {
@@ -99,56 +103,48 @@ async def analyze_and_save(
                 "delivery_score": d_score,
                 "final_score": f_score,
                 "voice_analysis": voice_res,
-                "visual_analysis": visual_res
+                "visual_analysis": visual_res,
+                "video_url": new_record.video_url,          
+                "practice_count": new_record.practice_count  
             }
         }
     except Exception as e:
-        db.rollback()  # 비상사태 시 작업 되돌리기
-        raise HTTPException(status_code=500, detail=f"서버에서 분석 중 에러가 발생했어: {str(e)}")
+        db.rollback()  
+        raise HTTPException(status_code=500, detail=f"서버에서 분석 중 에러가 발생했습니다: {str(e)}")
 
 
 # =========================================================================
-# [3단계: 📂 2번 통로 - 주소창 조작 차단! '내가 연습한 기록만' 최신순으로 가져오기]
+# [3단계: 2번 통로 - 주소창 조작 차단! '내가 연습한 기록만' 최신순으로 가져오기]
 # =========================================================================
 @app.get("/records", response_model=List[schemas.RecordResponse])
 def list_records(
-    limit: int = 3,                                                            
-    offset: int = 0,                                                           
+    limit: int = 3,                                                             
+    offset: int = 0,                                                            
     db: Session = Depends(database.get_db),
-    # 🛡️ [보안 혁신] 원래는 주소창에 이름(user_nickname)을 받아서 다른 사람 이름으로 조작하면 
-    # 남의 기록을 훔쳐볼 수 있는 취약점이 있었지만, 이제 주소창에서 이름표를 아예 지워버렸어요!
-    # 무조건 로그인한 사람의 출입증을 확인해서 조회합니다.
     current_user: models.UserModel = Depends(auth.get_current_user)
 ):
-    """
-    마이페이지 연습 목록용으로, 로그인한 사람의 기록만 딱 3개씩 잘라서 최신순으로 배달해요.
-    """
     records = (
         db.query(models.PresentationRecord)
-        # 🔍 내 회원 번호(`current_user.id`)가 적힌 기록 서랍만 뒤지기 때문에 철통 보안이에요!
         .filter(models.PresentationRecord.user_id == current_user.id)  
         .order_by(models.PresentationRecord.created_at.desc())             
-        .limit(limit)                                                                                                    
-        .offset(offset)                                                                                                  
-        .all()                                                                            
+        .limit(limit)                                                                                                                                                                                                                                                                                                            
+        .offset(offset)                                                                                                                                                                                                                                                                                                          
+        .all()                                                                                                            
     )
     return records
 
 
 # =========================================================================
-# [4단계: 📈 3번 통로 - 마이페이지 꺾은선 실력 그래프용 날짜+점수 가져오기]
+# [4단계: 3번 통로 - 마이페이지 꺾은선 실력 그래프용 날짜+점수 가져오기]
 # =========================================================================
 @app.get("/records/performance-trend", response_model=List[Dict[str, Any]])
 def get_performance_trend(
     db: Session = Depends(database.get_db),
-    current_user: models.UserModel = Depends(auth.get_current_user) # 🔒 로그인 경비원 주입!
+    current_user: models.UserModel = Depends(auth.get_current_user) 
 ):
-    """
-    내 대시보드에 과거 실력 변화 그래프를 그리기 위해 날짜랑 점수만 시간 순서대로 쏙 뽑아와요.
-    """
     records = (
         db.query(models.PresentationRecord.created_at, models.PresentationRecord.final_score)
-        .filter(models.PresentationRecord.user_id == current_user.id) # 🔍 역시 로그인한 내 것만!
+        .filter(models.PresentationRecord.user_id == current_user.id) 
         .order_by(models.PresentationRecord.created_at.asc()) 
         .all()
     )
@@ -163,22 +159,19 @@ def get_performance_trend(
 
 
 # =========================================================================
-# [5단계: 🔍 4번 통로 - 리스트에서 기록 하나를 누르면 내 것일 때만 대시보드 복원]
+# [5단계: 4번 통로 - 리스트에서 기록 하나를 누르면 내 것일 때만 대시보드 복원]
 # =========================================================================
 @app.get("/records/{record_id}", response_model=schemas.RecordResponse)
 def get_single_record(
-    record_id: int,                                                            
+    record_id: int,                                                             
     db: Session = Depends(database.get_db),
-    current_user: models.UserModel = Depends(auth.get_current_user) # 🔒 로그인 경비원 주입!
+    current_user: models.UserModel = Depends(auth.get_current_user) 
 ):
-    """
-    과거 기록 목록 중 하나를 클릭하면 그 당시 AI 피드백 화면을 복원해 줘요.
-    """
     record = (
         db.query(models.PresentationRecord)
         .filter(
             models.PresentationRecord.id == record_id,
-            models.PresentationRecord.user_id == current_user.id  # 🛡️ 이중 잠금: 요청한 번호의 글이 진짜 로그인한 내 글이어야만 꺼내줌!
+            models.PresentationRecord.user_id == current_user.id  
         )
         .first()
     )
@@ -193,22 +186,19 @@ def get_single_record(
 
 
 # =========================================================================
-# [6단계: 🗑️ 5번 통로 - 안전하게 오직 '내 기록만' 골라서 삭제하기]
+# [6단계: 5번 통로 - 안전하게 오직 '내 기록만' 골라서 삭제하기]
 # =========================================================================
 @app.delete("/records/{record_id}", response_model=schemas.DeleteResponse)
 def delete_record(
-    record_id: int,                                                            
+    record_id: int,                                                             
     db: Session = Depends(database.get_db),
-    current_user: models.UserModel = Depends(auth.get_current_user) # 🔒 로그인 경비원 주입!
+    current_user: models.UserModel = Depends(auth.get_current_user) 
 ):
-    """
-    마음에 안 드는 과거 연습 이력을 완전히 영구 파쇄하는 통로예요.
-    """
     record = (
         db.query(models.PresentationRecord)
         .filter(
             models.PresentationRecord.id == record_id,
-            models.PresentationRecord.user_id == current_user.id  # 🛡️ 내 글이 확실할 때만 서랍에서 꺼내옵니다 (해킹 차단).
+            models.PresentationRecord.user_id == current_user.id  
         )
         .first()
     )
@@ -220,8 +210,8 @@ def delete_record(
         )
     
     try:
-        db.delete(record) # 파쇄기에 넣기
-        db.commit()       # 영구 파쇄 확정!
+        db.delete(record) 
+        db.commit()       
         
         return {
             "status": "success",
@@ -231,3 +221,44 @@ def delete_record(
     except Exception as e:
         db.rollback() 
         raise HTTPException(status_code=500, detail=f"기록 삭제 중 서버 오류 발생: {str(e)}")
+    
+
+# =========================================================================
+# [7단계: 6번 통로 - 마이페이지에서 내 발표 기록 제목 내 마음대로 수정하기]
+# =========================================================================
+@app.patch("/records/{record_id}/title", response_model=schemas.TitleUpdateResponse)
+def update_record_title(
+    record_id: int,
+    request: schemas.TitleUpdateRequest,
+    db: Session = Depends(database.get_db),
+    current_user: models.UserModel = Depends(auth.get_current_user) 
+):
+    record = (
+        db.query(models.PresentationRecord)
+        .filter(
+            models.PresentationRecord.id == record_id,
+            models.PresentationRecord.user_id == current_user.id  
+        )
+        .first()
+    )
+    
+    if not record:
+        raise HTTPException(
+            status_code=404, 
+            detail="해당 발표 기록을 찾을 수 없거나 수정할 권한이 없습니다!"
+        )
+    
+    try:
+        record.title = request.title
+        db.commit()
+        db.refresh(record)
+        
+        return {
+            "status": "success",
+            "message": "발표 기록 제목이 성공적으로 수정되었습니다.",
+            "record_id": record.id,
+            "updated_title": record.title
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"제목 수정 중 서버 오류 발생: {str(e)}")
