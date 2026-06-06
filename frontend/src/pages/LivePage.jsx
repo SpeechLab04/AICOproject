@@ -53,6 +53,13 @@ function LivePage() {
   
   const currentQuestion = generatedQuestions[currentQuestionIndex];
 
+  const PERSONA_NAME = {
+    mentor: "🎓 김멘토 교수님",
+    press: "🔥 이압박 교수님",
+    troll: "😈 최트롤 교수님",
+    basic: "📚 유기본 교수님",
+  };
+
   // 페이지 진입 시 이전 분석 결과 초기화
   useEffect(() => {
     localStorage.removeItem("analysisResult");
@@ -393,6 +400,48 @@ function LivePage() {
     } else {
       uploadAndNavigate();
     }
+  };
+
+  const readQuestion = () => {
+
+    console.log("currentQuestion =", currentQuestion);
+    if (!currentQuestion?.question) return;
+
+    speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(
+      currentQuestion.question
+    );
+
+    utterance.lang = "ko-KR";
+    switch (currentQuestion?.persona_type) {
+
+      case "mentor":
+        utterance.rate = 0.9;
+        utterance.pitch = 0.9;
+        break;
+
+      case "press":
+        utterance.rate = 1.2;
+        utterance.pitch = 0.8;
+        break;
+
+      case "troll":
+        utterance.rate = 1.15;
+        utterance.pitch = 1.3;
+        break;
+
+      case "basic":
+        utterance.rate = 0.95;
+        utterance.pitch = 1.15;
+        break;
+
+      default:
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+    }
+
+    speechSynthesis.speak(utterance);
   };
 
   const startAnswerRecording = async () => {
@@ -870,7 +919,7 @@ const stopAnswerRecording = () => {
                     marginBottom: "20px",
                   }}
                 >
-                  {currentQuestion?.audience}
+                  {PERSONA_NAME[currentQuestion?.persona_type]}
                 </div>
 
                 <div
@@ -889,6 +938,7 @@ const stopAnswerRecording = () => {
                 </div>
 
                 <button
+                  onClick={readQuestion}
                   style={{
                     width: "100%",
                     background: "#E5F4EF",
