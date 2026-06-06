@@ -10,6 +10,11 @@ from dotenv import load_dotenv
 import traceback
 from typing import List
 
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
+
+from realtime_mode.tts import generate_question_tts
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATABASE_DIR = BASE_DIR / "database"
 
@@ -67,6 +72,10 @@ ALL_PROFESSOR_PERSONAS = [
     "troll",   # 트롤형 (무성의하고 맥락 없는 교수님)
     "basic"    # 기본형 (친절하지만 원론적인 교수님)
 ]
+
+class TTSRequest(BaseModel):
+    text: str
+    persona_type: str
 
 @app.get("/")
 def read_root():
@@ -451,6 +460,7 @@ async def stt_answer(
     file: UploadFile = File(...)
 ):
 
+
     result = transcribe_answer(file)
 
     if not result["success"]:
@@ -460,3 +470,17 @@ async def stt_answer(
         )
 
     return result
+
+@app.post("/tts-question")
+async def tts_question(req: TTSRequest):
+
+    audio_path = generate_question_tts(
+        req.text,
+        req.persona_type
+    )
+
+    return FileResponse(
+        audio_path,
+        media_type="audio/mpeg",
+        filename="question.mp3"
+    )

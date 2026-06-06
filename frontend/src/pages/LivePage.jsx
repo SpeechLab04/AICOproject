@@ -60,6 +60,9 @@ function LivePage() {
     basic: "📚 유기본 교수님",
   };
 
+  const [ttsCache, setTtsCache] = useState({});
+  const [ttsReady, setTtsReady] = useState(false);
+
   // 페이지 진입 시 이전 분석 결과 초기화
   useEffect(() => {
     localStorage.removeItem("analysisResult");
@@ -292,12 +295,16 @@ function LivePage() {
       console.log("질문 생성 결과 =", data);
 
       setGeneratedQuestions(data.questions);
+      setTtsReady(false);
+      preloadTTS(data.questions);
       localStorage.setItem(
         "generatedQuestions",
         JSON.stringify(data.questions)
       );
       setIsAnalyzing(false);
       setPresentationEnded(true);
+
+
       stopCamera();
 
     } catch (err) {
@@ -402,46 +409,80 @@ function LivePage() {
     }
   };
 
-  const readQuestion = () => {
+  const preloadTTS = async (questions) => {
 
-    console.log("currentQuestion =", currentQuestion);
-    if (!currentQuestion?.question) return;
+    const cache = {};
 
-    speechSynthesis.cancel();
+    for (const q of questions) {
 
-    const utterance = new SpeechSynthesisUtterance(
-      currentQuestion.question
-    );
+      try {
 
-    utterance.lang = "ko-KR";
-    switch (currentQuestion?.persona_type) {
+        const res = await fetch(
+          "http://127.0.0.1:8000/tts-question",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              text: q.question,
+              persona_type: q.persona_type,
+            }),
+          }
+        );
 
-      case "mentor":
-        utterance.rate = 0.9;
-        utterance.pitch = 0.9;
-        break;
+        const blob = await res.blob();
 
-      case "press":
-        utterance.rate = 1.2;
-        utterance.pitch = 0.8;
-        break;
+        cache[q.question] =
+          URL.createObjectURL(blob);
 
-      case "troll":
-        utterance.rate = 1.15;
-        utterance.pitch = 1.3;
-        break;
+      } catch (err) {
 
-      case "basic":
-        utterance.rate = 0.95;
-        utterance.pitch = 1.15;
-        break;
-
-      default:
-        utterance.rate = 1.0;
-        utterance.pitch = 1.0;
+        console.error(
+          "TTS 캐싱 실패",
+          err
+        );
+      }
     }
 
-    speechSynthesis.speak(utterance);
+    setTtsCache(cache);
+
+    setTtsReady(true);
+    console.log(
+      "TTS 캐싱 완료"
+    );
+  };
+
+  const readQuestion = async () => {
+
+    if (!currentQuestion?.question) return;
+
+    const audioUrl =
+      ttsCache[
+        currentQuestion.question
+      ];
+
+    if (!audioUrl) {
+
+      console.log(
+        "아직 TTS 생성 중"
+      );
+
+      return;
+    }
+
+    const audio =
+      new Audio(audioUrl);
+
+    audio.playbackRate = 1.1;
+
+    audio.onplay = () =>
+      console.log("재생 시작");
+
+    audio.onerror = (e) =>
+      console.log("재생 실패", e);
+
+    await audio.play();
   };
 
   const startAnswerRecording = async () => {
@@ -939,16 +980,24 @@ const stopAnswerRecording = () => {
 
                 <button
                   onClick={readQuestion}
+                  disabled={!ttsReady}
                   style={{
                     width: "100%",
-                    background: "#E5F4EF",
-                    color: "#6BB5A6",
+                    background: ttsReady
+                      ? "#E5F4EF"
+                      : "#F1F5F9",
+                    color: ttsReady
+                      ? "#6BB5A6"
+                      : "#94A3B8",
                     border: "none",
                     padding: "15px",
                     borderRadius: "18px",
                     fontWeight: "800",
                     marginBottom: "18px",
-                    cursor: "pointer",
+                    cursor: ttsReady
+                      ? "pointer"
+                      : "not-allowed",
+                    opacity: ttsReady ? 1 : 0.7,
                   }}
                 >
                   <Volume2
@@ -958,7 +1007,10 @@ const stopAnswerRecording = () => {
                       marginRight: "8px",
                     }}
                   />
-                  질문 읽기
+
+                  {ttsReady
+                    ? "질문 읽기"
+                    : "음성 준비중..."}
                 </button>
 
                 <div
