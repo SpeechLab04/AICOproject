@@ -1,11 +1,47 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+
+function getTokenRemaining() {
+  const token = localStorage.getItem("token");
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    const remaining = Math.floor(payload.exp - Date.now() / 1000);
+    if (remaining <= 0) return null;
+    const m = Math.floor(remaining / 60);
+    const s = remaining % 60;
+    return `${m}:${String(s).padStart(2, "0")}`;
+  } catch {
+    return null;
+  }
+}
 
 function Header({ showBack = false }) {
   const navigate = useNavigate();
   const isMobile = window.innerWidth < 768;
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(getTokenRemaining);
+
+  useEffect(() => {
+    // 페이지 로드 시 즉시 체크
+    if (!getTokenRemaining() && localStorage.getItem("token")) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("aicoUser");
+    }
+
+    const interval = setInterval(() => {
+      const remaining = getTokenRemaining();
+      setTimeLeft(remaining);
+      if (!remaining && localStorage.getItem("token")) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("aicoUser");
+        alert("로그인이 만료되었습니다. 다시 로그인해주세요.");
+        navigate("/login");
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const user = localStorage.getItem("aicoUser");
 
@@ -62,22 +98,21 @@ function Header({ showBack = false }) {
 
       {/* 오른쪽 */}
       <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-        {showBack && (
-          <button
-            onClick={() => navigate(-1)}
-            style={{
-              background: "white",
-              border: "2px solid #6BB5A6",
-              color: "#6BB5A6",
-              padding: isMobile ? "8px 16px" : "10px 24px",
-              borderRadius: "30px",
-              fontSize: isMobile ? "14px" : "16px",
-              fontWeight: "700",
-              cursor: "pointer",
-            }}
-          >
-            이전
-          </button>
+
+
+        {/* 남은 시간 */}
+        {user && timeLeft && (
+          <span style={{
+            fontSize: isMobile ? "13px" : "15px",
+            color: timeLeft < "05:00" ? "#D96B4C" : "#7AA5A0",
+            fontWeight: "700",
+            background: "white",
+            border: "2px solid #DDEEE8",
+            borderRadius: "12px",
+            padding: "6px 12px",
+          }}>
+            ⏱ {timeLeft}
+          </span>
         )}
 
         {/* 햄버거 */}

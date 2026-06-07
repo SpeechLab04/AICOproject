@@ -1,11 +1,47 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import MagneticButton from "../components/MagneticButton";
+
+function getTokenRemaining() {
+  const token = localStorage.getItem("token");
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    const remaining = Math.floor(payload.exp - Date.now() / 1000);
+    if (remaining <= 0) return null;
+    const m = Math.floor(remaining / 60);
+    const s = remaining % 60;
+    return `${m}:${String(s).padStart(2, "0")}`;
+  } catch {
+    return null;
+  }
+}
 
 function HomePage() {
   const navigate = useNavigate();
   const isMobile = window.innerWidth < 768;
   const [menuOpen, setMenuOpen] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(getTokenRemaining);
+
+  useEffect(() => {
+    // 페이지 로드 시 즉시 체크
+    if (!getTokenRemaining() && localStorage.getItem("token")) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("aicoUser");
+    }
+
+    const interval = setInterval(() => {
+      const remaining = getTokenRemaining();
+      setTimeLeft(remaining);
+      if (!remaining && localStorage.getItem("token")) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("aicoUser");
+        alert("로그인이 만료되었습니다. 다시 로그인해주세요.");
+        navigate("/login");
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const user = localStorage.getItem("aicoUser");
 
@@ -56,7 +92,8 @@ function HomePage() {
           position: "relative",
         }}
       >
-        {/* 로고 */}
+        {/* 왼쪽: 로고 + 로그인/로그아웃 */}
+        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
         <button
           onClick={() => navigate("/")}
           style={{
@@ -91,16 +128,15 @@ function HomePage() {
           </p>
         </button>
 
-        <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+          {/* 로그인/로그아웃 버튼 */}
           {user ? (
             <button
               onClick={handleLogout}
               style={{
                 background: "transparent",
-                border: "2px solid #6BB5A6",
+                border: "none",
                 color: "#6BB5A6",
                 padding: isMobile ? "8px 16px" : "10px 24px",
-                borderRadius: "30px",
                 fontSize: isMobile ? "14px" : "16px",
                 fontWeight: "700",
                 cursor: "pointer",
@@ -113,10 +149,9 @@ function HomePage() {
               onClick={() => navigate("/login")}
               style={{
                 background: "transparent",
-                border: "2px solid #6BB5A6",
+                border: "none",
                 color: "#6BB5A6",
                 padding: isMobile ? "8px 18px" : "10px 24px",
-                borderRadius: "30px",
                 fontSize: isMobile ? "14px" : "16px",
                 fontWeight: "700",
                 cursor: "pointer",
@@ -124,6 +159,22 @@ function HomePage() {
             >
               로그인
             </button>
+          )}
+        </div>
+
+        <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+          {user && timeLeft && (
+            <span style={{
+              fontSize: isMobile ? "13px" : "15px",
+              color: timeLeft < "05:00" ? "#D96B4C" : "#7AA5A0",
+              fontWeight: "700",
+              background: "white",
+              border: "2px solid #DDEEE8",
+              borderRadius: "12px",
+              padding: "6px 12px",
+            }}>
+              ⏱ {timeLeft}
+            </span>
           )}
 
           <button

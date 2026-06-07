@@ -15,6 +15,8 @@ function UploadPage() {
 
   const savedSetup = JSON.parse(localStorage.getItem("presentationSetup")) || {};
   const actualTopic = savedSetup.topic || "대학 자유 주제 발표";
+  const selectedScenario = JSON.parse(localStorage.getItem("selectedScenario")) || {};
+  const scenarioTitle = selectedScenario.title || "학교 발표";
   
   const audiences = JSON.parse(localStorage.getItem("selectedAudiences")) || [];
 
@@ -194,7 +196,7 @@ function UploadPage() {
           >
             <span>
               시나리오:{" "}
-              <strong style={{ color: "#2D3A3A" }}>{actualTopic}</strong>
+              <strong style={{ color: "#2D3A3A" }}>{scenarioTitle}</strong>
             </span>
             <span style={{ color: "#C8E4D6" }}>|</span>
             <span>

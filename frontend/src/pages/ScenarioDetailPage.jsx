@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { GraduationCap, BarChart3, Clock, Target } from "lucide-react";
 import Header from "../components/Header";
@@ -14,9 +15,22 @@ function ScenarioDetailPage() {
       practiceCount: 0,
     };
 
-  const practiceCount = parseInt(
-    localStorage.getItem(`practiceCount_${scenario.id}`) || "0", 10
-  );
+  const [practiceCount, setPracticeCount] = useState(0);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token || !scenario.id) return;
+
+    fetch(`${import.meta.env.VITE_API_URL}/records?limit=50&offset=0`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then((records) => {
+        const count = records.filter((r) => r.scenario_id === scenario.id).length;
+        setPracticeCount(count);
+      })
+      .catch(() => {});
+  }, []);
 
   const goals = [
     "명확한 발표 내용 전달",

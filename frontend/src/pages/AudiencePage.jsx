@@ -223,7 +223,7 @@ function AudiencePage() {
               cursor: "pointer",
             }}
           >
-            발표 방식 선택하기
+            다음 단계로 이동하기
           </button>
         </div>
       </main>
