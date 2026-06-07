@@ -82,11 +82,21 @@ def analyze_speech_vibrancy(audio_path, segments):
                     seg_values.append(pitch)
 
             # monotone 판정 기준 완화
-            if seg_values and np.std(seg_values) < 18:
-                monotone_segments.append({
-                    "start": round(seg['start'], 1),
-                    "end": round(seg['end'], 1)
-                })
+            if seg_values:
+
+                pitch_std = np.std(seg_values)
+
+                print(
+                    f"[MONOTONE] "
+                    f"{seg['start']:.1f}s~{seg['end']:.1f}s "
+                    f"std={pitch_std:.2f}"
+                )
+
+                if pitch_std < 25:
+                    monotone_segments.append({
+                        "start": round(seg['start'], 1),
+                        "end": round(seg['end'], 1)
+                    })
 
         return vibrancy_score, monotone_segments
 
@@ -351,27 +361,111 @@ def run_detailed_analysis(
         ) if speech_duration > 0 else 0
 
         wpm_eval = get_wpm_feedback(wpm)
-        voice_score = calculate_voice_score(wpm, vibrancy_score, len(filler_occurrences))
+
+        # ========================
+        # 전달력
+        # ========================
+
+        if 100 <= wpm <= 135:
+            wpm_score = 100
+        elif 80 <= wpm < 100 or 135 < wpm <= 160:
+            wpm_score = 80
+        else:
+            wpm_score = 60
+
+        delivery_score = round(
+            wpm_score * 0.7 +
+            vibrancy_score * 0.3
+        )
+
+        # ========================
+        # 유창성
+        # ========================
+
+        filler_score = max(
+            100 - len(filler_occurrences) * 5,
+            50
+        )
+
+        echo_score = max(
+            100 - len(echo_matches) * 10,
+            50
+        )
+
+        mod_score = max(
+            100 - len(mod_found) * 8,
+            60
+        )
+
+        fluency_score = round(
+            filler_score * 0.5 +
+            echo_score * 0.3 +
+            mod_score * 0.2
+        )
+
+        # ========================
+        # 안정성
+        # ========================
+
+        pause_count = len(pauses)
+
+
+        print("pause_count =", pause_count)
+        print("pause_details =", pauses)
+        
+        if pause_count <= 2:
+            stability_score = 100
+        elif pause_count <= 5:
+            stability_score = 80
+        elif pause_count <= 8:
+            stability_score = 60
+        else:
+            stability_score = 40
+
+        # ========================
+        # 표현력
+        # ========================
+
+        monotone_penalty = min(
+            len(monotone_timeline) * 5,
+            30
+        )
+
+        expression_score = max(
+            vibrancy_score - monotone_penalty,
+            40
+        )
+
+        # ========================
+        # 종합점수
+        # ========================
+
+        voice_score = round(
+            delivery_score * 0.40 +
+            fluency_score * 0.35 +
+            stability_score * 0.25
+        )
 
         print("===== 음성 분석 디버그 =====")
-        print("WPM =", wpm)
-        print("vibrancy_score =", vibrancy_score)
-        print("filler_count =", len(filler_occurrences))
-        print("voice_score =", voice_score)
+        print("delivery =", delivery_score)
+        print("fluency =", fluency_score)
+        print("stability =", stability_score)
+        print("expression =", expression_score)
+        print("voice =", voice_score)
 
         analysis_results[file_id] = {
             "success": True,
 
-        "summary": {
-            "wpm": wpm,
-            "vibrancy_score": vibrancy_score,
+            "summary": {
+                "wpm": wpm,
+                "vibrancy_score": vibrancy_score,
 
-            "voice_score": voice_score,
+                "voice_score": voice_score,
 
-            "delivery_score": delivery_score,
-            "fluency_score": fluency_score,
-            "stability_score": stability_score,
-            "expression_score": expression_score,
+                "delivery_score": delivery_score,
+                "fluency_score": fluency_score,
+                "stability_score": stability_score,
+                
                 "status": wpm_eval["status"],
                 "color": wpm_eval["color"],
                 "feedback": wpm_eval["feedback"],
