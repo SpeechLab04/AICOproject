@@ -6,6 +6,7 @@ import {
   Volume2,
   SkipForward,
   CheckCircle2,
+  Maximize,
 } from "lucide-react";
 import Header from "../components/Header";
 
@@ -679,18 +680,49 @@ const stopAnswerRecording = () => {
               {isStarted && remainingTime !== null && showTimer && (
                 <div style={{
                   position: "absolute",
-                  top: "12px",
-                  right: "12px",
-                  background: remainingTime <= 30 ? "rgba(229,115,115,0.9)" : "rgba(0,0,0,0.55)",
+                  top: "16px",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  background: remainingTime <= 30 ? "rgba(229,115,115,0.92)" : "rgba(0,0,0,0.62)",
                   color: "white",
-                  padding: "4px 12px",
+                  padding: "1px 18px",
                   borderRadius: "999px",
-                  fontSize: "14px",
-                  fontWeight: "800",
+                  fontSize: "36px",
+                  fontWeight: "900",
+                  letterSpacing: "2px",
                   pointerEvents: "none",
+                  boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
                 }}>
                   {String(Math.floor(remainingTime / 60)).padStart(2, "0")}:{String(remainingTime % 60).padStart(2, "0")}
                 </div>
+              )}
+
+              {/* 전체화면 재진입 버튼 - 발표 중이고 전체화면이 아닐 때 */}
+              {isStarted && !presentationEnded && !isFullscreen && (
+                <button
+                  onClick={() => {
+                    if (cameraContainerRef.current?.requestFullscreen) {
+                      cameraContainerRef.current.requestFullscreen().catch(err => console.error(err));
+                    }
+                  }}
+                  style={{
+                    position: "absolute",
+                    bottom: "12px",
+                    right: "12px",
+                    background: "rgba(0,0,0,0.45)",
+                    color: "white",
+                    border: "none",
+                    padding: "6px",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    zIndex: 10,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Maximize size={18} />
+                </button>
               )}
 
               {/* 전체화면 중 발표 종료 버튼 */}
