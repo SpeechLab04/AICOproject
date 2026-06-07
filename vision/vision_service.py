@@ -20,8 +20,9 @@ from gesture_analysis import (
     calculate_gesture_score, get_gesture_feedback,
 )
 
-mp_face_mesh = mp.solutions.face_mesh
-mp_hands     = mp.solutions.hands
+mp_face_mesh   = mp.solutions.face_mesh
+mp_face_detect = mp.solutions.face_detection
+mp_hands       = mp.solutions.hands
 
 # ── 카메라 가이드 상수 ──
 SAMPLE_FRAMES          = 60
@@ -37,7 +38,6 @@ def detect_rotate_mode(video_path):
     if not cap.isOpened():
         return "none"
 
-    # 메타데이터 기반 후보를 우선순위 1번으로
     meta_rotation = int(cap.get(cv2.CAP_PROP_ORIENTATION_META) or 0)
     meta_map = {90: "ccw", 180: "180", 270: "cw", 0: "none"}
     meta_mode = meta_map.get(meta_rotation, "none")
@@ -47,8 +47,9 @@ def detect_rotate_mode(video_path):
     if not ret:
         return meta_mode
 
-    # 메타데이터 결과 먼저, 나머지 순서로 시도
-    candidates = [meta_mode] + [m for m in ["none", "ccw", "cw", "180"] if m != meta_mode]
+    # "none"을 항상 1순위로 시도 (OpenCV가 이미 메타데이터 회전을 적용하는 경우가 많음)
+    # 그 다음 meta_mode, 나머지 순서
+    candidates = ["none"] + [m for m in [meta_mode, "ccw", "cw", "180"] if m != "none"]
 
     with mp_face_mesh.FaceMesh(
         static_image_mode=True,
@@ -66,11 +67,26 @@ def detect_rotate_mode(video_path):
             if result.multi_face_landmarks:
                 lm         = result.multi_face_landmarks[0].landmark
                 face_ratio = abs(lm[454].x - lm[234].x)
-                if face_ratio > 0.05:   # 옆얼굴 오감지 방지
+                if face_ratio > 0.05:
                     print(f"[자동 감지] rotate_mode = {mode} (face_ratio={round(face_ratio,3)})")
                     return mode
                 else:
                     print(f"[자동 감지] {mode} 시도 → face_ratio={round(face_ratio,3)} 너무 작음, 다음 시도")
+
+    # FaceMesh 실패 시 face_detection 모델로 재시도 (원거리 소형 얼굴 대응)
+    with mp_face_detect.FaceDetection(model_selection=1, min_detection_confidence=0.2) as det:
+        for mode in candidates:
+            rotated = rotate_frame(frame, mode)
+            h, w    = rotated.shape[:2]
+            scale   = 640 / max(h, w)
+            small   = cv2.resize(rotated, (int(w * scale), int(h * scale)))
+            rgb     = cv2.cvtColor(small, cv2.COLOR_BGR2RGB)
+            result  = det.process(rgb)
+            if result.detections:
+                bb = result.detections[0].location_data.relative_bounding_box
+                if bb.width > 0.03:
+                    print(f"[자동 감지] face_detection fallback: rotate_mode = {mode} (bbox.width={round(bb.width,3)})")
+                    return mode
 
     print(f"[자동 감지] 얼굴 감지 실패 → 메타데이터 기반 {meta_mode} 사용")
     return meta_mode
@@ -200,7 +216,7 @@ def _compute_guide(face_ratios, hand_count, total):
         return {
             "distance": "얼굴 미감지", "face_detected": False,
             "hand_visible": False, "face_ratio": 0.0,
-            "suggestion": "얼굴이 감지되지 않았습니다. 카메라 정면을 바라보고 조명을 밝게 해주세요.",
+            "suggestion": "얼굴이 감지되지 않았습니다. 카메라와 1~2m 거리를 유지하고 정면을 바라봐 주세요.",
             "is_valid": False,
         }
     avg_ratio     = sum(face_ratios) / len(face_ratios)
@@ -281,7 +297,7 @@ def analyze_vision(video_path, situation="academic", rotate_mode="auto"):
 
     # ── 표정 누산 ──
     emotion_counts = {"positive": 0, "neutral": 0}
-    emotion_buf    = deque(maxlen=7)
+    emotion_buf    = deque(maxlen=3)
     emotion_total  = 0
 
     # ── 시선 누산 ──
@@ -303,14 +319,17 @@ def analyze_vision(video_path, situation="academic", rotate_mode="auto"):
         static_image_mode=False,
         max_num_faces=1,
         refine_landmarks=True,
-        min_detection_confidence=0.5,
-        min_tracking_confidence=0.5,
+        min_detection_confidence=0.3,
+        min_tracking_confidence=0.3,
     ) as face_mesh, mp_hands.Hands(
         static_image_mode=False,
         max_num_hands=2,
         min_detection_confidence=0.6,
         min_tracking_confidence=0.5,
-    ) as hands:
+    ) as hands, mp_face_detect.FaceDetection(
+        model_selection=1,
+        min_detection_confidence=0.2,
+    ) as face_det:
 
         while True:
             ret, frame = cap.read()
@@ -336,6 +355,12 @@ def analyze_vision(video_path, situation="academic", rotate_mode="auto"):
                     _, y_r = get_head_metrics(lm)
                     if y_r is not None:
                         guide_y_ratios.append(y_r)
+                else:
+                    # FaceMesh 실패 시 face_detection 모델로 face_ratio 보완 (원거리 소형 얼굴)
+                    det_res = face_det.process(rgb)
+                    if det_res.detections:
+                        bb = det_res.detections[0].location_data.relative_bounding_box
+                        guide_face_ratios.append(bb.width)
                 if hand_res.multi_hand_landmarks:
                     guide_hand_count += 1
 
@@ -347,11 +372,11 @@ def analyze_vision(video_path, situation="academic", rotate_mode="auto"):
                     print(f"[디버깅] 평균 face_ratio: {round(avg_ratio, 4)} (기준: {FACE_TOO_FAR} ~ {FACE_TOO_CLOSE})")
                     # 동적 임계값 계산
                     if guide_y_ratios:
-                        # Phase 1 최댓값 기반 → 처음부터 고개 숙이고 찍어도 올바른 기준 유지
-                        # 최솟값 0.60 보장 → 매우 낮은 카메라 등 극단적 상황 대비
-                        baseline_y      = max(max(guide_y_ratios), 0.60)
-                        dyn_down_thresh = baseline_y - 0.13   # 고개 숙임 = y_ratio 감소 (카메라 각도 오차 고려해 여유 확대)
-                        dyn_up_thresh   = baseline_y + 0.10   # 고개 젖힘 = y_ratio 증가
+                        # Phase 1 최솟값 기반 → 발표 초반 자연스러운(또는 가장 중립적인) 자세를 기준으로 사용
+                        # floor 0.55 보장 → Phase 1 내내 고개 젖히고 있어도 오검출 방지
+                        baseline_y      = max(min(guide_y_ratios), 0.55)
+                        dyn_down_thresh = baseline_y + 0.03   # 고개 숙임 = y_ratio 증가
+                        dyn_up_thresh   = baseline_y - 0.10   # 고개 젖힘 = y_ratio 감소
                         print(f"[디버깅] baseline_y={round(baseline_y,3)}, down_thresh={round(dyn_down_thresh,3)}, up_thresh={round(dyn_up_thresh,3)}")
                     guide_result = _compute_guide(guide_face_ratios, guide_hand_count, guide_total)
                     print(f"거리 판정: {guide_result['distance']} / 안내: {guide_result['suggestion']}")
@@ -366,11 +391,12 @@ def analyze_vision(video_path, situation="academic", rotate_mode="auto"):
                 if not guide_result["is_valid"]:
                     break
 
-            # ── Phase 2: 본 분석 (1fps 샘플링) ──
+            # ── Phase 2: 매 프레임 face_mesh 처리 (tracker 유지), 점수는 1fps 간격에만 누산 ──
+            face_res = face_mesh.process(rgb)
+
             if frame_count % frame_interval != 0:
                 continue
 
-            face_res = face_mesh.process(rgb)
             hand_res = hands.process(rgb)
 
             # 고개
@@ -388,9 +414,9 @@ def analyze_vision(video_path, situation="academic", rotate_mode="auto"):
                             direction = "right"
                         elif avg_x < -0.12:
                             direction = "left"
-                        elif avg_y < dyn_down_thresh:
+                        elif avg_y > dyn_down_thresh:
                             direction = "down"
-                        elif avg_y > dyn_up_thresh:
+                        elif avg_y < dyn_up_thresh:
                             direction = "up"
                         else:
                             direction = "front"
@@ -405,10 +431,8 @@ def analyze_vision(video_path, situation="academic", rotate_mode="auto"):
             emotion_total += 1
             if face_res.multi_face_landmarks:
                 face_lm        = face_res.multi_face_landmarks[0]
-                emotion, _     = classify_emotion(face_lm)
-                emotion_buf.append(emotion)
-                stable_emotion = max(set(emotion_buf), key=emotion_buf.count)
-                emotion_counts[stable_emotion] += 1
+                emotion, _ = classify_emotion(face_lm)
+                emotion_counts[emotion] += 1
             else:
                 emotion_counts["neutral"] += 1
 

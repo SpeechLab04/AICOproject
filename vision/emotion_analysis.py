@@ -141,9 +141,9 @@ def classify_emotion(face_landmarks):
     )
 
     soft_smile = (
-        mouth_width > 0.28 and
-        corner_lift > 0.003 and
-        mouth_height > 0.004
+        mouth_width > 0.27 and
+        corner_lift > 0.001 and
+        (mouth_height > 0.002 or corner_lift > 0.005)
     )
 
     is_smile = (big_smile or soft_smile) and eye_open_avg > 0.008
