@@ -118,7 +118,11 @@ function DashboardPage() {
   const voiceHabits = voiceData.speech_habits || {};
   const voiceTimeline = voiceData.timeline_events || {};
 
-  const voiceScore = voiceSummary.vibrancy_score || voiceData.score || 0;
+  const voiceScore =
+    voiceSummary?.voice_score ||
+    voiceData?.score ||
+    0; 
+    
   const speedWpm = voiceSummary.wpm || voiceData.speed_wpm || 0;
   const fillerCount = voiceHabits.filler_count || voiceData.filler_count || 0;
   const voiceFeedback = voiceSummary.feedback || voiceData.feedback || "음성 분석 결과입니다.";

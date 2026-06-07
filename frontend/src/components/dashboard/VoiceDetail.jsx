@@ -83,8 +83,8 @@ function VoiceDetail({
   const isMobile = useIsMobile();
   const fs = getFS(isMobile);
   const wpm = Math.round(speedWpm || 0);
-  const vibrancyScore = Math.round(score || 0);
-  const [activePoint, setActivePoint] = useState(null);
+  const vibrancyScore =
+    Math.round(summary?.vibrancy_score || 0);
 
   const fillerTotal = habits.filler_count || fillerCount || 0;
   const echoCount = habits.echo_count || 0;
