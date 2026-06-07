@@ -290,14 +290,14 @@ def analyze_vision(video_path, situation="academic", rotate_mode="auto"):
     dyn_up_thresh   = None
 
     # ── 고개 방향 누산 ──
-    head_x_buf  = deque(maxlen=15)
-    head_y_buf  = deque(maxlen=15)
+    head_x_buf  = deque(maxlen=5)
+    head_y_buf  = deque(maxlen=5)
     head_counts = {"left": 0, "right": 0, "up": 0, "down": 0, "front": 0}
     head_total  = 0
 
     # ── 표정 누산 ──
     emotion_counts = {"positive": 0, "neutral": 0}
-    emotion_buf    = deque(maxlen=3)
+    emotion_buf    = deque(maxlen=1)
     emotion_total  = 0
 
     # ── 시선 누산 ──
@@ -535,7 +535,7 @@ def analyze_vision(video_path, situation="academic", rotate_mode="auto"):
         if not gesture_detected:
             gesture_result = {
                 "total_frames": gesture_total, "gesture_counts": gesture_counts,
-                "gesture_ratio": gesture_ratio, "gesture_score": None,
+                "gesture_ratio": {}, "gesture_score": None,
                 "gesture_feedback": "손동작이 감지되지 않았습니다. 발표 연습 시 손동작을 활용하면 더 좋은 인상을 줄 수 있습니다.",
                 "gesture_detected": False,
             }

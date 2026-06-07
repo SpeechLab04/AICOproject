@@ -104,7 +104,13 @@ def get_head_feedback(ratios):
     dominant = "오른쪽" if right > left else "왼쪽"
     other    = "왼쪽"   if right > left else "오른쪽"
 
-    if down >= 20:
+    if down >= 40:
+        return (
+            f"발표 중 아래를 {int(down)}% 보셨어요. 원고를 많이 의존하는 것처럼 보여요. "
+            f"핵심 키워드만 메모해두고 나머지는 청중을 보며 말하는 연습을 해보세요. "
+            f"목표는 아래 보기 10% 이하예요."
+        )
+    elif down >= 20:
         return (
             f"발표 중 아래를 {int(down)}% 보셨어요. 청중 입장에서 자신감이 없어 보일 수 있어요. "
             f"원고 대신 핵심 키워드만 메모해두고 청중을 보며 말하는 연습을 해보세요. "
@@ -113,8 +119,7 @@ def get_head_feedback(ratios):
     elif one_sided and lr > 10:
         return (
             f"{dominant} 청중을 주로 바라봤어요({int(max(left, right))}%). "
-            f"{other} 청중도 함께 바라봐야 발표가 더 균형 있어 보여요. "
-            f"왼쪽 → 정면 → 오른쪽 순으로 시선을 이동하는 연습을 해보세요. "
+            f"발표 중 의식적으로 {other} 청중에게도 시선을 보내보세요. "
             f"목표는 좌우를 비슷한 비율로 균형 있게 바라보는 거예요."
         )
     elif front >= 65 and 15 <= lr <= 35:
@@ -125,9 +130,14 @@ def get_head_feedback(ratios):
     elif front >= 70 and down <= 10:
         return (
             f"정면을 {int(front)}% 안정적으로 유지했어요. "
-            f"다만 좌우 청중을 바라본 비율이 {int(lr)}%로 조금 적어요. "
-            f"발표 중 왼쪽 → 정면 → 오른쪽 순으로 시선을 이동하면 더 많은 청중과 소통하는 느낌을 줄 수 있어요. "
-            f"목표는 좌우 합쳐서 15~35%예요."
+            f"한 문장 말하고 나면 왼쪽이나 오른쪽으로 시선을 한 번씩 옮겨보세요. "
+            f"더 많은 청중과 눈을 맞추는 느낌을 줄 수 있어요. 목표는 좌우 합쳐서 15~35%예요."
+        )
+    elif front >= 50 and down <= 10:
+        return (
+            f"정면을 {int(front)}% 유지했어요. "
+            f"왼쪽 → 정면 → 오른쪽 순으로 시선을 이동하는 연습을 해보세요. "
+            f"목표는 정면 65% 이상, 좌우 15~35%예요."
         )
     elif front < 40:
         return (
@@ -143,9 +153,9 @@ def get_head_feedback(ratios):
         )
     elif lr < 10:
         return (
-            f"정면을 {int(front)}% 잘 유지했지만, 좌우 청중을 바라본 비율이 {int(lr)}%로 적어요. "
-            f"발표 중 왼쪽 → 정면 → 오른쪽 순으로 시선을 이동하면 "
-            f"청중 전체가 집중하는 발표가 돼요. 목표는 좌우 합쳐서 15~35%예요."
+            f"정면을 {int(front)}% 잘 유지했지만, 좌우 청중을 거의 바라보지 않았어요. "
+            f"청중석 왼쪽 끝, 정면, 오른쪽 끝을 순서대로 바라보는 패턴을 연습해보세요. "
+            f"목표는 좌우 합쳐서 15~35%예요."
         )
     else:
         return (
