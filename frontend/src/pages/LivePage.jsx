@@ -236,6 +236,7 @@ function LivePage() {
   };
 
   const handlePresentationEnd = async () => {
+    setRemainingTime(null); // 타이머 즉시 정지
 
     // 전체화면 종료
     if (document.fullscreenElement) {
