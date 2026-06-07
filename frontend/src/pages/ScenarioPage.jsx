@@ -1,9 +1,31 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 
 function ScenarioPage() {
   const navigate = useNavigate();
   const isMobile = window.innerWidth < 768;
+  const [practiceCounts, setPracticeCounts] = useState({});
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    fetch(`${import.meta.env.VITE_API_URL}/records?limit=50&offset=0`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then((records) => {
+        const counts = {};
+        records.forEach((r) => {
+          if (r.scenario_id) {
+            counts[r.scenario_id] = (counts[r.scenario_id] || 0) + 1;
+          }
+        });
+        setPracticeCounts(counts);
+      })
+      .catch(() => {});
+  }, []);
 
   const scenarios = [
     {
@@ -199,7 +221,7 @@ function ScenarioPage() {
               >
                 지금까지 연습한 횟수{" "}
                 <strong style={{ color: "#6BB5A6" }}>
-                  {parseInt(localStorage.getItem(`practiceCount_${scenario.id}`) || "0", 10)}회
+                  {practiceCounts[scenario.id] || 0}회
                 </strong>
               </div>
 

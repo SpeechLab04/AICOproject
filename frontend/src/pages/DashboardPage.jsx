@@ -191,7 +191,9 @@ function DashboardPage() {
             AI 발표 코칭 결과
           </h2>
           <p style={{ color: "#6B7C79", fontSize: isMobile ? "14px" : "18px" }}>
-            {analysisResult?.title || scenario.title || "대학 자유 주제 발표"} · {new Date().toLocaleDateString()}
+            {scenario.title || "학교 발표"}
+            {analysisResult?.title ? ` · ${analysisResult.title}` : ""}
+            {" · "}{new Date().toLocaleDateString()}
           </p>
         </div>
 
