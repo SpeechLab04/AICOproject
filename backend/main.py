@@ -10,6 +10,11 @@ from dotenv import load_dotenv
 import traceback
 from typing import List
 
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
+
+from realtime_mode.tts import generate_question_tts
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATABASE_DIR = BASE_DIR / "database"
 
@@ -30,7 +35,11 @@ import database
 import models
 import auth
 import schemas
-from speech.speech_processor import process_voice_analysis, get_voice_result
+from speech.speech_processor import (
+    process_voice_analysis,
+    get_voice_result,
+    transcribe_answer,
+)
 from llm.app.services.ai_feedback import get_ai_presentation_feedback
 from vision_service import analyze_vision
 
@@ -63,6 +72,10 @@ ALL_PROFESSOR_PERSONAS = [
     "troll",   # 트롤형 (무성의하고 맥락 없는 교수님)
     "basic"    # 기본형 (친절하지만 원론적인 교수님)
 ]
+
+class TTSRequest(BaseModel):
+    text: str
+    persona_type: str
 
 @app.get("/")
 def read_root():
@@ -441,3 +454,33 @@ async def create_feedback(script: str, topic: str = "대학 자유 주제 발표
         return {"status": "success", "data": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+@app.post("/stt-answer")
+async def stt_answer(
+    file: UploadFile = File(...)
+):
+
+
+    result = transcribe_answer(file)
+
+    if not result["success"]:
+        raise HTTPException(
+            status_code=500,
+            detail=result["error"]
+        )
+
+    return result
+
+@app.post("/tts-question")
+async def tts_question(req: TTSRequest):
+
+    audio_path = generate_question_tts(
+        req.text,
+        req.persona_type
+    )
+
+    return FileResponse(
+        audio_path,
+        media_type="audio/mpeg",
+        filename="question.mp3"
+    )

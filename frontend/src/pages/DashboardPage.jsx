@@ -30,6 +30,10 @@ function DashboardPage() {
   const audiences = JSON.parse(localStorage.getItem("selectedAudiences")) || [];
   const uploadedVideoUrl = analysisResult?.video_url || localStorage.getItem("uploadedVideoUrl");
 
+  const qaAnswers =
+    JSON.parse(
+      localStorage.getItem("qaAnswers")
+    ) || [];
   const totalScore = analysisResult?.total_score !== undefined ? Math.round(Number(analysisResult.total_score)) : 83;
 
   const postureScore = analysisResult?.posture?.score || 0;
@@ -127,8 +131,29 @@ function DashboardPage() {
   const contentCritique = analysisResult?.script?.content_critique || "내용 비평 데이터를 불러올 수 없습니다.";
   const scriptText = analysisResult?.script?.full_script || "스크립트 결과가 없습니다.";
   const generalQuestions = analysisResult?.script?.general_questions || [];
-  const personaQuestions = analysisResult?.script?.persona_questions || analysisResult?.script?.questions || [];
+  const realtimeQuestions =
+    JSON.parse(
+      localStorage.getItem("generatedQuestions")
+    ) || [];
 
+  const personaQuestions =
+    realtimeQuestions.length > 0
+      ? realtimeQuestions
+      : (
+          analysisResult?.script?.persona_questions ||
+          analysisResult?.script?.questions ||
+          []
+        );
+
+  console.log(
+    "realtimeQuestions =",
+    realtimeQuestions
+  );
+
+  console.log(
+    "personaQuestions =",
+    personaQuestions
+  );
   const contentFeedback = analysisResult?.script?.content_feedback || {};
   const strengthItems = contentFeedback.strength?.length > 0
     ? contentFeedback.strength
@@ -144,10 +169,12 @@ function DashboardPage() {
   basic: "유기본 교수님",
 };
 
-  const audienceQuestions = personaQuestions.map((q) => ({
+  const audienceQuestions = personaQuestions.map((q, index) => ({
     audience: PERSONA_LABEL[q.persona_type] || q.persona_type,
     question: q.question,
-    intent: q.intent || "질문 의도를 분석 중입니다."
+    intent: q.intent || "질문 의도를 분석 중입니다.",
+    answer: qaAnswers[index]?.answer || "",
+    skipped: qaAnswers[index]?.skipped || false,
   }));
 
   return (

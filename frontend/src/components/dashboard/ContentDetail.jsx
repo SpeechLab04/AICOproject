@@ -199,6 +199,39 @@ function ContentDetail({
                   </p>
                 </div>
               )}
+
+              {item.answer && (
+                <div
+                  style={{
+                    background: "#F7F9FF",
+                    padding: "16px 18px",
+                    borderRadius: "14px",
+                    borderLeft: "4px solid #6BB5A6",
+                    marginTop: "12px",
+                  }}
+                >
+                  <p
+                    style={{
+                      fontSize: "14px",
+                      color: "#58706D",
+                      marginBottom: "8px",
+                      fontWeight: "700",
+                    }}
+                  >
+                    🎤 내 답변
+                  </p>
+
+                  <p
+                    style={{
+                      margin: 0,
+                      color: "#2D3A3A",
+                      lineHeight: "1.7",
+                    }}
+                  >
+                    {item.answer}
+                  </p>
+                </div>
+              )}
             </div>
           ))
         ) : (

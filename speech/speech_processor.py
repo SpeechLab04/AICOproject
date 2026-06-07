@@ -519,3 +519,41 @@ def get_voice_result(file_id: str):
         }
 
     return result
+
+def transcribe_answer(file: UploadFile):
+
+    file_id = str(uuid.uuid4())
+
+    audio_path = os.path.join(
+        UPLOAD_DIR,
+        f"{file_id}_{file.filename}"
+    )
+
+    try:
+
+        with open(audio_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        with open(audio_path, "rb") as audio_file:
+
+            transcript = client.audio.transcriptions.create(
+                model="whisper-1",
+                file=audio_file
+            )
+
+        return {
+            "success": True,
+            "transcript": transcript.text
+        }
+
+    except Exception as e:
+
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+    finally:
+
+        if os.path.exists(audio_path):
+            os.remove(audio_path)
