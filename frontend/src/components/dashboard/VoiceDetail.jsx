@@ -82,10 +82,16 @@ function VoiceDetail({
 }) {
   const isMobile = useIsMobile();
   const fs = getFS(isMobile);
+  const [activePoint, setActivePoint] = useState(null);
   const wpm = Math.round(speedWpm || 0);
   const vibrancyScore =
     Math.round(summary?.vibrancy_score || 0);
 
+  const deliveryScore = summary?.delivery_score || 0;
+  const fluencyScore = summary?.fluency_score || 0;
+  const stabilityScore = summary?.stability_score || 0;
+  //const expressionScore = summary?.expression_score || 0;
+  
   const fillerTotal = habits.filler_count || fillerCount || 0;
   const echoCount = habits.echo_count || 0;
   const modCount = habits.modification_count || 0;
@@ -103,38 +109,31 @@ function VoiceDetail({
     color: statusColorMap[statusLabel] || "#AABFBB",
   };
 
+    const pauseCount = timeline?.pause_details?.length || 0;
+
   const voiceMetrics = [
     {
-      key: "wpm",
-      label: "말하기 속도",
-      score: wpm > 0 ? Math.min(100, Math.round((wpm / 160) * 100)) : 0,
-      feedback: wpm > 0
-        ? feedback || "말하기 속도 분석 결과입니다."
-        : "음성이 아직 인식되지 않았습니다.",
+      key: "delivery",
+      label: "전달력",
+      score: deliveryScore,
+      feedback:
+        "말하기 속도와 목소리 활력을 기반으로 평가했습니다.",
     },
     {
-      key: "vibrancy",
-      label: "목소리 활력",
-      score: vibrancyScore,
-      feedback: vibrancyScore > 0
-        ? "억양 변화와 목소리 활력 정도를 분석한 결과입니다."
-        : "활력 점수가 아직 인식되지 않았습니다.",
+      key: "fluency",
+      label: "유창성",
+      score: fluencyScore,
+      feedback:
+        "추임새, 반복 표현, 수정 발화를 기반으로 평가했습니다.",
     },
     {
-      key: "filler",
-      label: "추임새 사용",
-      score: fillerTotal ? Math.max(0, 100 - fillerTotal * 10) : 100,
-      feedback: fillerTotal > 0
-        ? `추임새가 ${fillerTotal}회 감지되었습니다. 문장 사이에 잠깐 멈추는 연습을 해보세요.`
-        : "불필요한 추임새가 거의 없었습니다.",
-    },
-    {
-      key: "repeat",
-      label: "반복 표현",
-      score: echoCount ? Math.max(0, 100 - echoCount * 15) : 100,
-      feedback: echoCount > 0
-        ? `반복 표현이 ${echoCount}회 감지되었습니다.`
-        : "반복 표현이 거의 없었습니다.",
+      key: "stability",
+      label: "안정성",
+      score: stabilityScore,
+      feedback:
+        pauseCount === 0
+          ? "긴 침묵 구간이 발견되지 않았습니다."
+          : `침묵 구간 ${pauseCount}회가 감지되었습니다.`
     },
   ];
 
