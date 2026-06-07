@@ -159,7 +159,11 @@ def calculate_voice_score(wpm, vibrancy_score, filler_count):
     if 100 <= wpm <= 135:
         wpm_score = 100
     elif 80 <= wpm < 100 or 135 < wpm <= 160:
-        wpm_score = 70
+        wpm_score = 80
+
+    elif 60 <= wpm < 80 or 160 < wpm <= 180:
+        wpm_score = 60
+
     elif wpm > 0:
         wpm_score = 40
     else:
@@ -347,15 +351,27 @@ def run_detailed_analysis(
         ) if speech_duration > 0 else 0
 
         wpm_eval = get_wpm_feedback(wpm)
-        voice_score = calculate_voice_score(wpm, vibrancy_score, len(verified_fillers))
+        voice_score = calculate_voice_score(wpm, vibrancy_score, len(filler_occurrences))
+
+        print("===== 음성 분석 디버그 =====")
+        print("WPM =", wpm)
+        print("vibrancy_score =", vibrancy_score)
+        print("filler_count =", len(filler_occurrences))
+        print("voice_score =", voice_score)
 
         analysis_results[file_id] = {
             "success": True,
 
-            "summary": {
-                "wpm": wpm,
-                "vibrancy_score": vibrancy_score,
-                "voice_score": voice_score,
+        "summary": {
+            "wpm": wpm,
+            "vibrancy_score": vibrancy_score,
+
+            "voice_score": voice_score,
+
+            "delivery_score": delivery_score,
+            "fluency_score": fluency_score,
+            "stability_score": stability_score,
+            "expression_score": expression_score,
                 "status": wpm_eval["status"],
                 "color": wpm_eval["color"],
                 "feedback": wpm_eval["feedback"],
@@ -364,7 +380,7 @@ def run_detailed_analysis(
             },
 
             "speech_habits": {
-                "filler_count": len(verified_fillers),
+                "filler_count": len(filler_occurrences),
                 "filler_list": list(set(verified_fillers)),
                 "filler_occurrences": filler_occurrences,
                 "echo_count": len(echo_matches),
