@@ -49,6 +49,7 @@ function LivePage() {
 
   const [isProcessingAnswer, setIsProcessingAnswer] = useState(false);
   const [qaAnswers, setQaAnswers] = useState([]);
+  const [answerTimeLeft, setAnswerTimeLeft] = useState(null);
   
 
   const answerRecorderRef = useRef(null);
@@ -181,6 +182,26 @@ function LivePage() {
     const timer = setTimeout(() => setCountdown(c => c - 1), 1000);
     return () => clearTimeout(timer);
   }, [countdown]);
+
+  // 답변 시작 시 60초 타이머 시작, 종료 시 리셋
+  useEffect(() => {
+    if (isAnswering) {
+      setAnswerTimeLeft(60);
+    } else {
+      setAnswerTimeLeft(null);
+    }
+  }, [isAnswering]);
+
+  // 답변 타이머 카운트다운
+  useEffect(() => {
+    if (answerTimeLeft === null) return;
+    if (answerTimeLeft <= 0) {
+      stopAnswerRecording();
+      return;
+    }
+    const timer = setTimeout(() => setAnswerTimeLeft(t => t - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [answerTimeLeft]);
 
   // 발표 진행 중 남은 시간 타이머
   useEffect(() => {
@@ -1147,6 +1168,16 @@ const stopAnswerRecording = () => {
                       ? "답변 음성을 분석 중입니다..."
                       : "버튼을 눌러 음성으로 답변하세요"}
                   </div>
+                  {isAnswering && answerTimeLeft !== null && (
+                    <div style={{
+                      marginTop: "10px",
+                      fontSize: "22px",
+                      fontWeight: "900",
+                      color: answerTimeLeft <= 10 ? "#E53E3E" : "#6BB5A6",
+                    }}>
+                      ⏱ {answerTimeLeft}초
+                    </div>
+                  )}
                 </div>
 
                 <button
