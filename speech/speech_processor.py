@@ -235,6 +235,10 @@ def run_detailed_analysis(
     duration_sec,
     audio_path
 ):
+    
+    print("===== run_detailed_analysis =====")
+    print("duration_sec =", duration_sec)
+    print("segments =", len(segments))
 
     try:
 
@@ -422,19 +426,7 @@ def run_detailed_analysis(
         else:
             stability_score = 40
 
-        # ========================
-        # 표현력
-        # ========================
 
-        monotone_penalty = min(
-            len(monotone_timeline) * 5,
-            30
-        )
-
-        expression_score = max(
-            vibrancy_score - monotone_penalty,
-            40
-        )
 
         # ========================
         # 종합점수
@@ -450,7 +442,7 @@ def run_detailed_analysis(
         print("delivery =", delivery_score)
         print("fluency =", fluency_score)
         print("stability =", stability_score)
-        print("expression =", expression_score)
+        #print("expression =", expression_score)
         print("voice =", voice_score)
 
         analysis_results[file_id] = {
@@ -579,7 +571,16 @@ def process_voice_analysis(
                 "end": get_segment_value(s, "end", 0),
                 "text": get_segment_value(s, "text", "")
             })
+            
+        if segments_data:
+            duration_sec = segments_data[-1]["end"]
 
+        print("duration_sec =", duration_sec)
+
+
+        print("before run_detailed_analysis")
+        print("duration_sec =", duration_sec)
+        
         run_detailed_analysis(
             file_id,
             full_text,
