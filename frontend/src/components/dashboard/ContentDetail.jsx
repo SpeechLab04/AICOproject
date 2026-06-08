@@ -128,34 +128,6 @@ function ContentDetail({
         </section>
       )}
 
-      <section style={cardStyle}>
-        <h3 style={sectionTitle}>
-          <MessageSquare size={28} color="#6BB5A6" />
-          예상 질문
-        </h3>
-
-        {generalQuestions.length > 0 ? (
-          generalQuestions.map((question, index) => (
-            <div
-              key={index}
-              style={{
-                background: "#F8FCFA",
-                borderRadius: "18px",
-                padding: "14px 18px",
-                marginBottom: "12px",
-                color: "#2D3A3A",
-                fontSize: fs.label,
-                lineHeight: "1.7",
-              }}
-            >
-              <strong style={{ color: "#6BB5A6" }}>Q{index + 1}.</strong>{" "}
-              {question}
-            </div>
-          ))
-        ) : (
-          <p style={{ color: "#6B7C79" }}>생성된 질문이 없습니다.</p>
-        )}
-      </section>
 
       {/* 🎯 여기 청중별 질문 코드를 교체 수정했습니다 */}
       <section style={cardStyle}>
