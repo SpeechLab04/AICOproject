@@ -87,12 +87,18 @@ def analyze_speech_vibrancy(audio_path, segments):
                 pitch_std = np.std(seg_values)
 
                 print(
-                    f"[MONOTONE] "
+                    f"[CHECK] "
                     f"{seg['start']:.1f}s~{seg['end']:.1f}s "
                     f"std={pitch_std:.2f}"
                 )
 
                 if pitch_std < 90:
+
+                    print(
+                        f"[MONOTONE DETECTED] "
+                        f"{seg['start']:.1f}s~{seg['end']:.1f}s"
+                    )
+
                     monotone_segments.append({
                         "start": round(seg['start'], 1),
                         "end": round(seg['end'], 1)
@@ -377,11 +383,22 @@ def run_detailed_analysis(
         else:
             wpm_score = 60
 
-        delivery_score = round(
-            wpm_score * 0.7 +
-            vibrancy_score * 0.3
+        monotone_count = len(monotone_timeline)
+
+        monotone_penalty = min(
+            monotone_count * 7,
+            35
         )
 
+        delivery_score = max(
+            wpm_score - monotone_penalty,
+            40
+        )
+
+        print("wpm_score =", wpm_score)
+        print("monotone_count =", monotone_count)
+        print("monotone_penalty =", monotone_penalty)
+        print("delivery_score =", delivery_score)
         # ========================
         # 유창성
         # ========================
@@ -432,6 +449,9 @@ def run_detailed_analysis(
         # 종합점수
         # ========================
 
+        print("monotone_count =", monotone_count)
+        print("monotone_penalty =", monotone_penalty)
+
         voice_score = round(
             delivery_score * 0.40 +
             fluency_score * 0.35 +
@@ -457,6 +477,7 @@ def run_detailed_analysis(
                 "delivery_score": delivery_score,
                 "fluency_score": fluency_score,
                 "stability_score": stability_score,
+                "monotone_count": monotone_count,
                 
                 "status": wpm_eval["status"],
                 "color": wpm_eval["color"],
