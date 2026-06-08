@@ -216,7 +216,7 @@ def _compute_guide(face_ratios, hand_count, total):
         return {
             "distance": "얼굴 미감지", "face_detected": False,
             "hand_visible": False, "face_ratio": 0.0,
-            "suggestion": "얼굴이 감지되지 않았습니다. 카메라와 1~1.3m 거리를 유지하고 정면을 바라봐 주세요.",
+            "suggestion": "얼굴이 감지되지 않았습니다. 카메라와 1~2m 거리를 유지하고 정면을 바라봐 주세요.",
             "is_valid": False,
         }
     avg_ratio     = sum(face_ratios) / len(face_ratios)
@@ -227,14 +227,14 @@ def _compute_guide(face_ratios, hand_count, total):
         return {
             "distance": "너무 가까움", "face_detected": face_detected,
             "hand_visible": hand_visible, "face_ratio": round(avg_ratio, 3),
-            "suggestion": "카메라와 너무 가깝습니다. 상체 전체가 화면에 들어오도록 1~1.3m 거리를 유지해 주세요.",
+            "suggestion": "카메라와 너무 가깝습니다. 상체 전체가 화면에 들어오도록 1~2m 거리를 유지해 주세요.",
             "is_valid": False,
         }
     elif avg_ratio < FACE_TOO_FAR:
         return {
             "distance": "너무 멀음", "face_detected": face_detected,
             "hand_visible": hand_visible, "face_ratio": round(avg_ratio, 3),
-            "suggestion": "카메라와 너무 멉니다. 얼굴과 상체가 잘 보이도록 1~1.3m 거리를 유지해 주세요.",
+            "suggestion": "카메라와 너무 멉니다. 얼굴과 상체가 잘 보이도록 1~2m 거리를 유지해 주세요.",
             "is_valid": False,
         }
     else:
