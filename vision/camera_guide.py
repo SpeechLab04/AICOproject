@@ -121,7 +121,7 @@ def check_camera_guide(video_path, rotate_mode="none"):
         distance   = "너무 가까움"
         suggestion = (
             "카메라와 너무 가깝습니다. "
-            "상체 전체가 화면에 들어오도록 1~1.3m 거리를 유지해 주세요."
+            "상체 전체가 화면에 들어오도록 1~2m 거리를 유지해 주세요."
         )
         is_valid = False
 
@@ -129,7 +129,7 @@ def check_camera_guide(video_path, rotate_mode="none"):
         distance   = "너무 멀음"
         suggestion = (
             "카메라와 너무 멉니다. "
-            "얼굴과 상체가 잘 보이도록 1~1.3m 거리를 유지해 주세요."
+            "얼굴과 상체가 잘 보이도록 1~2m 거리를 유지해 주세요."
         )
         is_valid = False
 
