@@ -92,7 +92,7 @@ def analyze_speech_vibrancy(audio_path, segments):
                     f"std={pitch_std:.2f}"
                 )
 
-                if pitch_std < 25:
+                if pitch_std < 90:
                     monotone_segments.append({
                         "start": round(seg['start'], 1),
                         "end": round(seg['end'], 1)
