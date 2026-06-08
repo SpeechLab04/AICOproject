@@ -115,7 +115,7 @@ function DashboardPage() {
 
   const voiceData = voiceDetailResult || analysisResult?.voice || {};
   const voiceSummary = voiceData.summary || {};
-  const voiceHabits = voiceData.speech_habits || {};
+  console.log("voiceSummary =", JSON.stringify(voiceSummary, null, 2));  const voiceHabits = voiceData.speech_habits || {};
   const voiceTimeline = voiceData.timeline_events || {};
 
   const voiceScore =

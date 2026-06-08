@@ -141,7 +141,22 @@ function VoiceDetail({
     ? Math.round(voiceMetrics.reduce((sum, m) => sum + m.score, 0) / voiceMetrics.length)
     : 0;
 
-  const totalDuration = summary.total_duration || 1;
+  const maxPauseTime = Math.max(
+    ...((timeline?.pause_details || []).map(
+      p => p.at + p.duration
+    )),
+    1
+  );
+
+  const totalDuration =
+    summary?.total_duration > 0
+      ? summary.total_duration
+      : maxPauseTime;
+  console.log("timeline =", timeline);
+  console.log("pause_details =", timeline?.pause_details);
+  console.log("monotone_sections =", timeline?.monotone_sections);
+  console.log("summary =", summary);
+  console.log("totalDuration =", totalDuration);
 
   return (
     <section style={cardStyle}>
@@ -326,25 +341,47 @@ function VoiceDetail({
             />
           ))}
 
-          {(timeline.pause_details || []).map((pause, idx) => (
-            <button
-              key={idx}
-              onClick={() => {
-                setActivePoint(`pause-${idx}`);
-                if (videoRef?.current) { videoRef.current.currentTime = pause.at; videoRef.current.play(); videoRef.current.scrollIntoView({ behavior: "smooth", block: "center" }); }
-              }}
-              style={{
-                position: "absolute", top: "14px",
-                left: `${(pause.at / totalDuration) * 100}%`,
-                width: "24px", height: "24px", borderRadius: "50%",
-                background: "#D99A2B", border: "3px solid white",
-                transform: "translateX(-50%)", cursor: "pointer",
-                boxShadow: activePoint === `pause-${idx}` ? "0 0 0 3px rgba(217,154,43,0.35)" : "0 2px 6px rgba(0,0,0,0.12)",
-                transition: "box-shadow 0.2s",
-              }}
-              title={`${pause.at.toFixed(1)}초 · ${pause.duration.toFixed(1)}초 침묵`}
-            />
-          ))}
+          {(timeline.pause_details || []).map((pause, idx) => {
+
+            console.log(
+              "pause",
+              pause.at,
+              "totalDuration",
+              totalDuration,
+              "left",
+              (pause.at / totalDuration) * 100
+            );
+
+            return (
+              <button
+                key={idx}
+                onClick={() => {
+                  setActivePoint(`pause-${idx}`);
+                  if (videoRef?.current) {
+                    videoRef.current.currentTime = pause.at;
+                    videoRef.current.play();
+                    videoRef.current.scrollIntoView({
+                      behavior: "smooth",
+                      block: "center"
+                    });
+                  }
+                }}
+                style={{
+                  position: "absolute",
+                  top: "14px",
+                  left: `${(pause.at / totalDuration) * 100}%`,
+                  width: "24px",
+                  height: "24px",
+                  borderRadius: "50%",
+                  background: "#D99A2B",
+                  border: "3px solid white",
+                  transform: "translateX(-50%)",
+                  cursor: "pointer",
+                }}
+                title={`${pause.at.toFixed(1)}초 · ${pause.duration.toFixed(1)}초 침묵`}
+              />
+            );
+          })}
         </div>
 
         {(timeline.pause_details || []).length === 0 && (timeline.monotone_sections || []).length === 0 && (
