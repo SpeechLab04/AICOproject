@@ -170,7 +170,7 @@ function DashboardPage() {
   const PERSONA_LABEL = {
   mentor: "김멘토 교수님",
   press: "이압박 교수님",
-  troll: "최트롤 교수님",
+  troll: "최비판 교수님",
   basic: "유기본 교수님",
 };
 

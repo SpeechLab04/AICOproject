@@ -596,6 +596,17 @@ def process_voice_analysis(
         if segments_data:
             duration_sec = segments_data[-1]["end"]
 
+        if duration_sec == 0:
+            try:
+                probe = subprocess.run(
+                    ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                     "-of", "default=noprint_wrappers=1:nokey=1", audio_temp_path],
+                    capture_output=True, text=True
+                )
+                duration_sec = float(probe.stdout.strip())
+            except Exception:
+                pass
+
         print("duration_sec =", duration_sec)
 
 
