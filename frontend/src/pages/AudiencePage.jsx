@@ -9,8 +9,11 @@ function AudiencePage() {
     {
       id: "mentor",
       name: "멘토형",
+      professor: "김멘토 교수님",
+      quote: "이 부분을 발전시키면 정말 좋은 연구가 될 것 같아요. 조금 더 얘기해줄 수 있나요?",
       subtitle: "우호적이고 전문적인 청중",
       detail: "깊이 있는 질문과 피드백을 제공하며, 발표자가 성장하도록 도와줍니다.",
+      description: "따뜻하지만 학술적 완성도엔 타협 없는 교수님. 발전적 방향을 짚어줍니다.",
       color: "#6BB5A6",
       bg: "#E5F4EF",
       level: "★★★★",
@@ -18,8 +21,11 @@ function AudiencePage() {
     {
       id: "press",
       name: "압박형",
+      professor: "이압박 교수님",
+      quote: "근거가 부족합니다. 이 수치, 어디서 나온 건가요?",
       subtitle: "엄격하고 전문적인 청중",
       detail: "날카로운 질문과 반박으로 발표 내용을 꼼꼼히 검증합니다.",
+      description: "논리 허점과 데이터 공백을 집요하게 파고드는 심사위원장 스타일입니다.",
       color: "#D96B4C",
       bg: "#FBE8DF",
       level: "★★★★★",
@@ -27,8 +33,11 @@ function AudiencePage() {
     {
       id: "troll",
       name: "비판형",
+      professor: "최비판 교수님",
+      quote: "이 기능... 굳이 넣어야 했나요?",
       subtitle: "엄격하고 비전문적인 청중",
       detail: "맥락 없는 질문이나 불만족스러운 반응으로 돌발 상황을 연습합니다.",
+      description: "사소한 부분에 꽂혀 뜬금없는 태클을 거는 교수님. 돌발 대처 능력을 키울 수 있습니다.",
       color: "#D99A2B",
       bg: "#FFF0D2",
       level: "★★★",
@@ -36,8 +45,11 @@ function AudiencePage() {
     {
       id: "basic",
       name: "기본형",
+      professor: "유기본 교수님",
+      quote: "수고 많았어요. 그래서 이 프로젝트, 누구를 위한 건가요?",
       subtitle: "우호적이고 비전문적인 청중",
       detail: "쉬운 질문과 온화한 반응으로 기본 발표 연습에 적합합니다.",
+      description: "긴장을 풀어주는 인자한 교수님. 편안한 분위기에서 발표 연습을 시작하기 좋습니다.",
       color: "#4E9CDC",
       bg: "#E3F1FF",
       level: "★★",
@@ -132,20 +144,32 @@ function AudiencePage() {
                   boxShadow: "0 10px 30px rgba(0,0,0,0.05)",
                   border: `2px solid ${audience.bg}`,
                   transition: "all 0.18s ease",
+                  display: "flex",
+                  flexDirection: "column",
                 }}
               >
-                <div
-                  style={{
-                    display: "inline-block",
-                    background: audience.bg,
-                    color: audience.color,
-                    padding: "8px 16px",
-                    borderRadius: "999px",
-                    fontWeight: "900",
-                    marginBottom: "22px",
-                  }}
-                >
-                  {audience.name}
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "22px" }}>
+                  <div
+                    style={{
+                      display: "inline-block",
+                      background: audience.bg,
+                      color: audience.color,
+                      padding: "8px 16px",
+                      borderRadius: "999px",
+                      fontWeight: "900",
+                    }}
+                  >
+                    {audience.name}
+                  </div>
+                  <span
+                    style={{
+                      fontSize: isMobile ? "15px" : "17px",
+                      fontWeight: "800",
+                      color: "#2D3A3A",
+                    }}
+                  >
+                    {audience.professor}
+                  </span>
                 </div>
 
                 <h3
@@ -164,20 +188,30 @@ function AudiencePage() {
                     color: "#5C706C",
                     fontSize: isMobile ? "15px" : "17px",
                     lineHeight: "1.7",
-                    marginBottom: "20px",
+                    marginBottom: "14px",
                     wordBreak: "keep-all",
                   }}
                 >
                   {audience.detail}
                 </p>
 
+                <p
+                  style={{
+                    color: audience.color,
+                    fontSize: isMobile ? "12px" : "13px",
+                    marginBottom: "20px",
+                    wordBreak: "keep-all",
+                    flexGrow: 1,
+                  }}
+                >
+                  "{audience.quote}"
+                </p>
+
                 <div
                   style={{
-                    background: "white",
-                    borderRadius: "18px",
-                    padding: "16px",
                     color: audience.color,
                     fontWeight: "800",
+                    fontSize: isMobile ? "13px" : "14px",
                   }}
                 >
                   난이도 {audience.level}
