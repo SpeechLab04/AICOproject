@@ -110,6 +110,8 @@ function VoiceDetail({
   };
 
     const pauseCount = timeline?.pause_details?.length || 0;
+    const monotoneCount =
+      timeline?.monotone_sections?.length || 0;
 
   const voiceMetrics = [
     {
@@ -117,7 +119,7 @@ function VoiceDetail({
       label: "전달력",
       score: deliveryScore,
       feedback:
-        "말하기 속도와 목소리 활력을 기반으로 평가했습니다.",
+        "말하기 속도와 단조로움 구간 여부를 기반으로 평가했습니다.",
     },
     {
       key: "fluency",
@@ -187,7 +189,7 @@ function VoiceDetail({
         <div style={{ width: "1px", height: "50px", background: "#C8E4D6" }} />
         <p style={{ color: "#4B5563", fontSize: fs.body, lineHeight: "1.8", flex: 1 }}>
           {voiceTotalScore > 0
-            ? "말하기 속도, 목소리 활력, 추임새 사용, 반복 표현을 종합 분석했습니다."
+            ? "음성의 전달력, 유창성, 안정성을 종합 분석했습니다."
             : "음성 분석 결과가 아직 인식되지 않았습니다. 조용한 환경에서 또렷한 목소리로 다시 촬영해보세요."}
         </p>
       </div>
@@ -202,11 +204,23 @@ function VoiceDetail({
           badgeColor={wpmStatus.color}
         />
         <StatCard
-          label="목소리 활력"
-          value={vibrancyScore > 0 ? `${vibrancyScore}` : "–"}
-          unit="점"
-          badge={vibrancyScore >= 70 ? "양호" : vibrancyScore > 0 ? "보통" : "분석 중"}
-          badgeColor={vibrancyScore >= 70 ? "#6BB5A6" : vibrancyScore > 0 ? "#D99A2B" : "#AABFBB"}
+          label="단조로움"
+          value={monotoneCount}
+          unit="구간"
+          badge={
+            monotoneCount === 0
+              ? "좋음"
+              : monotoneCount <= 2
+              ? "보통"
+              : "주의"
+          }
+          badgeColor={
+            monotoneCount === 0
+              ? "#6BB5A6"
+              : monotoneCount <= 2
+              ? "#D99A2B"
+              : "#D9534F"
+          }
         />
         <StatCard
           label="추임새"
@@ -294,22 +308,53 @@ function VoiceDetail({
           )}
         </div>
 
-        {(habits.modification_list || []).length > 0 && (
-          <div style={{ ...habitBox, gridColumn: isMobile ? "auto" : "1 / 3" }}>
-            <div style={habitBoxHeader}>
-              <span style={{ ...habitBoxTitle, fontSize: fs.label }}>수정 발화</span>
-              <span style={{ ...countBadge, background: "#FFF3E0", color: "#D99A2B" }}>
-                총 {modCount}회
-              </span>
-            </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+        <div style={{ ...habitBox, gridColumn: isMobile ? "auto" : "1 / 3" }}>
+          <div style={habitBoxHeader}>
+            <span style={{ ...habitBoxTitle, fontSize: fs.label }}>
+              수정 발화
+            </span>
+
+            <span
+              style={{
+                ...countBadge,
+                background:
+                  modCount > 0 ? "#FFF3E0" : "#EEF8F4",
+                color:
+                  modCount > 0 ? "#D99A2B" : "#6BB5A6"
+              }}
+            >
+              총 {modCount}회
+            </span>
+          </div>
+
+          {(habits.modification_list || []).length > 0 ? (
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "6px"
+              }}
+            >
               {habits.modification_list.map((item, idx) => (
-                <span key={idx} style={{ ...modTag, fontSize: isMobile ? "13px" : "16px", padding: isMobile ? "4px 10px" : "6px 14px" }}>{item}</span>
+                <span
+                  key={idx}
+                  style={{
+                    ...modTag,
+                    fontSize: isMobile ? "13px" : "16px",
+                    padding: isMobile ? "4px 10px" : "6px 14px"
+                  }}
+                >
+                  {item}
+                </span>
               ))}
             </div>
-          </div>
-        )}
-      </div>
+          ) : (
+            <p style={emptyText}>
+              감지된 수정 발화가 없습니다.
+            </p>
+          )}
+        </div>
+      </div> 
 
       {/* 타임라인 */}
       <div style={habitBox}>
@@ -397,12 +442,12 @@ function VoiceDetail({
               <FileText size={16} color="#6BB5A6" style={{ verticalAlign: "middle", marginRight: "6px" }} />
               발표 스크립트
             </span>
-            {fillerOccurrences.length > 0 && (
-              <span style={{ fontSize: "12px", color: "#9B5A60" }}>
-                <span style={{ color: "#C0424A", fontWeight: "800" }}>●</span>
-                {" "}추임새 클릭 시 해당 구간으로 이동
-              </span>
-            )}
+            
+            <span style={{ fontSize: "12px", color: "#9B5A60" }}>
+              <span style={{ color: "#C0424A", fontWeight: "800" }}>●</span>
+              {" "}추임새 클릭 시 해당 구간으로 이동
+            </span>
+
           </div>
           <div style={{
             background: "white",
