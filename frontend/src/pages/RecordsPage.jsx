@@ -60,9 +60,15 @@ function RecordsPage() {
   };
 
   const handleRecordClick = (record) => {
+    localStorage.removeItem("uploadedVideoUrl");
+    localStorage.removeItem("generatedQuestions");
+    localStorage.removeItem("qaAnswers");
+
     const restoredResult = {
       message: "기록 조회 완료",
       record_id: record.id,
+      title: record.title,
+      video_url: record.video_url,
       total_score: record.final_score || 0,
       summary: record.summary || "",
       posture: {
@@ -80,6 +86,7 @@ function RecordsPage() {
         summary: record.summary || "",
         full_script: record.stt_result || "",
         questions: record.persona_questions || [],
+        content_critique: record.content_critique || "",
         content_feedback: {
           strength: record.strength || "",
           weakness: record.weakness || "",

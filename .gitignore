@@ -1,87 +1,31 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> c5505d63044a4ad910588f9cb6f5d00f0b6e524e
-backend/uploads/
-*.mp4
-*.mov
-*.avi
-*.mkv
+# 1. 파이썬 캐시
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# 2. 데이터베이스
 *.db
+*.sqlite3
+presentation.db
+
+# 3. 가상환경
+.venv/
+.venv311/
+backend/.venv311/
+
+# 4. 영상 및 업로드 임시 파일
+uploads/
+backend/uploads/
+temp_audio.mp3
+*.mp4
+*.mov
+*.avi
+*.mkv
 *.webm
+
+# 5. 보안 및 환경변수 (절대 올라가면 안 되는 것들)
+#api키
 .env
-uploads/
-temp_audio.mp3 # 변환용 임시 파일
-
-# 가상환경
-.venv/
-.venv311/
-backend/.venv311/
-
-# 파이썬 캐시
-__pycache__/
-*.pyc
-.venv/
-.venv311/
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-<<<<<<< HEAD
-=======
-# AWS 키 파일
+# AWS 키
 *.pem
-
-backend/uploads/
-*.mp4
-*.mov
-*.avi
-*.mkv
-.env
-uploads/
-temp_audio.mp3 # 변환용 임시 파일
-*.db #기록파일 충돌방지 및 버전관리
-# 가상환경
-.venv/
-.venv311/
-backend/.venv311/
-
-# 파이썬 캐시
-__pycache__/
-*.pyc
-.venv/
-.venv311/
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
->>>>>>> 816d8631cafa49aba2dfc5b84179c8aa16a55191
-=======
-# AWS 키 파일
-*.pem
-
-backend/uploads/
-*.mp4
-*.mov
-*.avi
-*.mkv
-.env
-uploads/
-temp_audio.mp3 # 변환용 임시 파일
-*.db #기록파일 충돌방지 및 버전관리
-# 가상환경
-.venv/
-.venv311/
-backend/.venv311/
-
-# 파이썬 캐시
-__pycache__/
-*.pyc
-.venv/
-.venv311/
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
->>>>>>> c5505d63044a4ad910588f9cb6f5d00f0b6e524e
-.env

@@ -387,6 +387,12 @@ function LivePage() {
       if (!data) return;
       console.log("UPLOAD RESULT =", data);
       localStorage.setItem("analysisResult", JSON.stringify(data));
+      if (data.video_url) {
+        localStorage.setItem("uploadedVideoUrl", data.video_url);
+      } else if (data.analysis_summary && data.analysis_summary.video_url) {
+        localStorage.setItem("uploadedVideoUrl", data.analysis_summary.video_url);
+      }
+      
       stopCamera();
       navigate("/dashboard");
     })

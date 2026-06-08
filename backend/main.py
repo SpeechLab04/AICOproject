@@ -48,7 +48,7 @@ app = FastAPI(title="AICO API")
 
 app.include_router(realtime_router)
 
-models.Base.metadata.create_all(bind=database.engine)
+#models.Base.metadata.create_all(bind=database.engine)
 
 app.include_router(auth.router)
 
@@ -268,6 +268,8 @@ async def upload_video(
             content_critique=ai_result.get("content_critique", "내용 비평 데이터가 존재하지 않습니다."),
             title=presentation_topic.strip() if presentation_topic and presentation_topic.strip() else None,
             scenario_id=scenario_id or None,
+            video_url=f"http://127.0.0.1:8000/uploads/{unique_name}",
+            
             persona_questions=ai_result.get("persona_questions", []),
             strength=content_feedback.get("strength", ""),
             weakness=content_feedback.get("weakness", ""),
