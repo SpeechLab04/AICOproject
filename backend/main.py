@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import FastAPI, UploadFile, File, HTTPException, Form, BackgroundTasks, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -170,17 +171,7 @@ async def upload_video(
 
         file.file.seek(0)
 
-        speech_result = process_voice_analysis(file, background_tasks)
-
-        if not speech_result.get("success"):
-            raise HTTPException(
-                status_code=500,
-                detail=speech_result.get("error", "음성 분석 실패")
-            )
-
-        script_text = speech_result.get("full_script", "")
-
-        # webm → mp4 변환 (실시간 녹화 영상 대응)
+        # webm → mp4 변환 (실시간 녹화 영상 대응) — 음성/영상 병렬 분석 전 미리 수행
         analyze_path = file_path
         if file_path.endswith('.webm'):
             import subprocess
@@ -190,7 +181,20 @@ async def upload_video(
             if conv.returncode == 0:
                 analyze_path = mp4_path
 
-        vision_result = analyze_vision(analyze_path)
+        # 음성 분석 + 영상 분석 병렬 실행
+        loop = asyncio.get_event_loop()
+        speech_result, vision_result = await asyncio.gather(
+            loop.run_in_executor(None, process_voice_analysis, file, background_tasks),
+            loop.run_in_executor(None, analyze_vision, analyze_path),
+        )
+
+        if not speech_result.get("success"):
+            raise HTTPException(
+                status_code=500,
+                detail=speech_result.get("error", "음성 분석 실패")
+            )
+
+        script_text = speech_result.get("full_script", "")
 
         if vision_result.get("is_valid") is False:
             vision_result = {
@@ -246,7 +250,7 @@ async def upload_video(
                 },
             }
 
-        # 파싱된 페르소나 리스트를 안전하게 인자로 전달하여 호출하도록 교정 완료
+        # 음성·영상 완료 후 내용 분석 실행
         ai_result = await get_ai_presentation_feedback(
             script=script_text,
             selected_personas=parsed_personas,

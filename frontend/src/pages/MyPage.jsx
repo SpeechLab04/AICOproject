@@ -177,7 +177,7 @@ function MyPage() {
           </button>
 
           <button
-            onClick={() => navigate("/practice-mode")}
+            onClick={() => navigate("/scenario")}
             style={{
               flex: 1,
               background: "#6BB5A6",
