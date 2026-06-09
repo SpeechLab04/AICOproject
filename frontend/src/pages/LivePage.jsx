@@ -7,6 +7,7 @@ import {
   SkipForward,
   CheckCircle2,
   Maximize,
+  Minimize,
 } from "lucide-react";
 import Header from "../components/Header";
 
@@ -27,6 +28,8 @@ function LivePage() {
   const [isUploading, setIsUploading] = useState(false);
   const [canStart, setCanStart] = useState(false);
   const [cameraStatus, setCameraStatus] = useState("카메라를 준비 중입니다...");
+  const [cameraDistance, setCameraDistance] = useState("");
+  const [faceRatio, setFaceRatio] = useState(null);
   const [isWaiting, setIsWaiting] = useState(false);
   const [countdown, setCountdown] = useState(null);
   const [isSelectingTime, setIsSelectingTime] = useState(false);
@@ -46,6 +49,7 @@ function LivePage() {
 
   const [isProcessingAnswer, setIsProcessingAnswer] = useState(false);
   const [qaAnswers, setQaAnswers] = useState([]);
+  const [answerTimeLeft, setAnswerTimeLeft] = useState(null);
   
 
   const answerRecorderRef = useRef(null);
@@ -57,7 +61,7 @@ function LivePage() {
   const PERSONA_NAME = {
     mentor: "🎓 김멘토 교수님",
     press: "🔥 이압박 교수님",
-    troll: "😈 최트롤 교수님",
+    troll: "😈 최비판 교수님",
     basic: "📚 유기본 교수님",
   };
 
@@ -69,15 +73,6 @@ function LivePage() {
     localStorage.removeItem("analysisResult");
     localStorage.removeItem("uploadedVideoUrl");
     localStorage.removeItem("generatedQuestions");
-  }, []);
-
-  // 전체화면 상태 감지
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
   // 전체화면 상태 감지
@@ -141,9 +136,24 @@ function LivePage() {
           });
           const data = await res.json();
           setCanStart(data.is_valid);
-          setCameraStatus(data.suggestion);
+          setCameraDistance(data.distance || "");
+          setFaceRatio(data.face_ratio ?? null);
+          const distanceMsg = {
+            "적당":      "거리 적당해요!",
+            "너무 가까움": "조금 멀리\n이동해주세요.",
+            "너무 멀음":  "조금 더 가까이\n와주세요.",
+            "중앙 벗어남": "가이드라인 안으로\n이동해주세요.",
+            "위치 조정":  "상반신이 보이도록\n위로 올려주세요.",
+            "얼굴 미감지": "가까이 오거나\n정면을 봐주세요.",
+          };
+          const dist = (data.distance || "").trim();
+          const msg = distanceMsg[dist] || distanceMsg[data.distance] || data.suggestion || dist;
+          if (msg) setCameraStatus(msg);
         } catch (e) {
           console.error("카메라 체크 오류:", e);
+          setCanStart(false);
+          setCameraDistance("");
+          setFaceRatio(null);
         }
       }, "image/jpeg", 0.7);
     };
@@ -156,7 +166,7 @@ function LivePage() {
   useEffect(() => {
     if (!isWaiting) return;
     if (canStart) {
-      if (countdown === null) setCountdown(3);
+      if (countdown === null) setCountdown(5);
     } else {
       setCountdown(null); // 박스 벗어나면 리셋
     }
@@ -165,13 +175,33 @@ function LivePage() {
   // 3-2-1 카운트다운 타이머
   useEffect(() => {
     if (countdown === null) return;
-    if (countdown === 0) {
+    if (countdown <= 0) {
       startRecording();
       return;
     }
     const timer = setTimeout(() => setCountdown(c => c - 1), 1000);
     return () => clearTimeout(timer);
   }, [countdown]);
+
+  // 답변 시작 시 60초 타이머 시작, 종료 시 리셋
+  useEffect(() => {
+    if (isAnswering) {
+      setAnswerTimeLeft(60);
+    } else {
+      setAnswerTimeLeft(null);
+    }
+  }, [isAnswering]);
+
+  // 답변 타이머 카운트다운
+  useEffect(() => {
+    if (answerTimeLeft === null) return;
+    if (answerTimeLeft <= 0) {
+      stopAnswerRecording();
+      return;
+    }
+    const timer = setTimeout(() => setAnswerTimeLeft(t => t - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [answerTimeLeft]);
 
   // 발표 진행 중 남은 시간 타이머
   useEffect(() => {
@@ -704,12 +734,16 @@ const stopAnswerRecording = () => {
                 </div>
               )}
 
-              {/* 전체화면 재진입 버튼 - 발표 중이고 전체화면이 아닐 때 */}
-              {isStarted && !presentationEnded && !isFullscreen && (
+              {/* 전체화면 토글 버튼 - 페이지 진입부터 항상 표시 */}
+              {!presentationEnded && (
                 <button
                   onClick={() => {
-                    if (cameraContainerRef.current?.requestFullscreen) {
-                      cameraContainerRef.current.requestFullscreen().catch(err => console.error(err));
+                    if (isFullscreen) {
+                      document.exitFullscreen().catch(err => console.error(err));
+                    } else {
+                      if (cameraContainerRef.current?.requestFullscreen) {
+                        cameraContainerRef.current.requestFullscreen().catch(err => console.error(err));
+                      }
                     }
                   }}
                   style={{
@@ -728,7 +762,7 @@ const stopAnswerRecording = () => {
                     justifyContent: "center",
                   }}
                 >
-                  <Maximize size={18} />
+                  {isFullscreen ? <Minimize size={40} /> : <Maximize size={18} />}
                 </button>
               )}
 
@@ -784,50 +818,107 @@ const stopAnswerRecording = () => {
                 <div style={{
                   position: "absolute",
                   top: 0, left: 0, right: 0, bottom: 0,
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
                   pointerEvents: "none",
                 }}>
-                  {/* 가이드 박스 */}
+                  {/* 사람 실루엣 SVG - 카메라 전체 크기 기준 */}
+                  <svg
+                    viewBox="0 0 320 240"
+                    preserveAspectRatio="xMidYMid meet"
+                    style={{
+                      position: "absolute",
+                      top: 0, left: 0,
+                      width: "100%", height: "100%",
+                    }}
+                    fill="none"
+                  >
+                    {/* 사람 실루엣 - 왼쪽아래→어깨→머리호→어깨→오른쪽아래 (하나로 연결) */}
+                    <path
+                      d="M35,234 C 52,195 62,128 118,128 A 62,62 0 1 1 202,128 C 258,128 268,195 285,234"
+                      stroke={canStart ? "#6BB5A6" : "#FF4444"}
+                      strokeWidth="2"
+                      strokeDasharray="10,7"
+                      strokeLinecap="round"
+                      fill="none"
+                    />
+                  </svg>
+
+                  {/* 카메라 상태 오버레이 - 전체화면일 때만 카메라 안에 표시 */}
+                  {isFullscreen && cameraStatus && cameraStatus !== "카메라를 준비 중입니다..." && (
+                    <div style={{
+                      position: "absolute",
+                      top: "62%", left: "50%", transform: "translateX(-50%)",
+                      background: canStart ? "rgba(76,175,140,0.9)" : "rgba(220,30,30,0.88)",
+                      color: "white",
+                      padding: "28px 44px",
+                      minWidth: "50%",
+                      maxWidth: "65%",
+                      borderRadius: "20px",
+                      textAlign: "center",
+                      fontSize: "58px",
+                      fontWeight: "900",
+                      lineHeight: "1.3",
+                      whiteSpace: "nowrap",
+                      wordBreak: "keep-all",
+                      overflowWrap: "break-word",
+                      pointerEvents: "none",
+                    }}>
+                      {canStart ? "✅ " : ""}{cameraStatus}
+                      {faceRatio && (
+                        <div style={{
+                          fontSize: "28px",
+                          fontWeight: "700",
+                          marginTop: "8px",
+                          opacity: 0.9,
+                        }}>
+                          현재 거리 약 {(0.18 / faceRatio).toFixed(1)}m
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 하단 안내 텍스트 */}
                   <div style={{
-                    width: "55%",
-                    height: "82%",
-                    border: "2px dashed rgba(255,255,255,0.75)",
-                    borderRadius: "16px",
-                    position: "relative",
-                  }}>
-                    {/* 모서리 강조 */}
-                    {["topLeft","topRight","bottomLeft","bottomRight"].map((corner) => (
-                      <div key={corner} style={{
-                        position: "absolute",
-                        width: "18px",
-                        height: "18px",
-                        borderColor: "#6BB5A6",
-                        borderStyle: "solid",
-                        borderWidth: corner.includes("top") ? "3px 0 0 0" : "0 0 3px 0",
-                        ...(corner.includes("Left") ? { left: -1 } : { right: -1 }),
-                        ...(corner.includes("top") ? { top: -1, borderLeftWidth: corner === "topLeft" ? "3px" : "0", borderRightWidth: corner === "topRight" ? "3px" : "0" }
-                          : { bottom: -1, borderLeftWidth: corner === "bottomLeft" ? "3px" : "0", borderRightWidth: corner === "bottomRight" ? "3px" : "0" }),
-                      }} />
-                    ))}
-                  </div>
-                  {/* 안내 텍스트 */}
-                  <div style={{
-                    marginTop: "12px",
-                    background: "rgba(0,0,0,0.5)",
+                    position: "absolute",
+                    bottom: "14px",
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    background: "rgba(0,0,0,0.55)",
                     color: "white",
-                    padding: "6px 14px",
+                    padding: "6px 16px",
                     borderRadius: "999px",
-                    fontSize: "13px",
+                    fontSize: isFullscreen ? "20px" : "13px",
                     fontWeight: "700",
+                    whiteSpace: "nowrap",
                   }}>
-                    상반신이 박스 안에 들어오게 맞춰주세요
+                    상반신이 가이드라인 안에 들어오게 맞춰주세요
                   </div>
                 </div>
               )}
             </div>
+
+            {/* 일반화면 카메라 상태 박스 - 카메라 아래 */}
+            {!isFullscreen && !isStarted && cameraStatus && cameraStatus !== "카메라를 준비 중입니다..." && (
+              <div style={{
+                background: canStart ? "rgba(76,175,140,0.9)" : "rgba(220,30,30,0.88)",
+                color: "white",
+                padding: "14px 22px",
+                borderRadius: "16px",
+                textAlign: "center",
+                fontSize: "20px",
+                fontWeight: "900",
+                lineHeight: "1.3",
+                whiteSpace: "pre-line",
+                wordBreak: "keep-all",
+                margin: "10px 0 0",
+              }}>
+                {canStart ? "✅ " : ""}{cameraStatus}
+                {faceRatio && (
+                  <div style={{ fontSize: "14px", fontWeight: "700", marginTop: "6px", opacity: 0.9 }}>
+                    현재 거리 약 {(0.18 / faceRatio).toFixed(1)}m
+                  </div>
+                )}
+              </div>
+            )}
 
             {!isStarted ? (
               <>
@@ -856,17 +947,17 @@ const stopAnswerRecording = () => {
                     >
                       {isWaiting ? "가이드라인 안으로 들어오세요" : "발표 시작하기"}
                     </button>
-                    <div style={{
-                      textAlign: "center",
-                      marginTop: "10px",
-                      fontSize: "13px",
-                      color: canStart ? "#4D8F82" : "#888",
-                      fontWeight: "600",
-                    }}>
-                      {isWaiting
-                        ? (canStart ? `✅ ${cameraStatus}` : `⚠️ ${cameraStatus}`)
-                        : "버튼을 눌러 발표를 시작하세요"}
-                    </div>
+                    {!isWaiting && (
+                      <div style={{
+                        textAlign: "center",
+                        marginTop: "10px",
+                        fontSize: "13px",
+                        color: "#888",
+                        fontWeight: "600",
+                      }}>
+                        발표 시작하기를 누르면 전체화면 모드로 변경됩니다.
+                      </div>
+                    )}
                   </>
               </>
             ) : !presentationEnded ? (
@@ -1077,6 +1168,16 @@ const stopAnswerRecording = () => {
                       ? "답변 음성을 분석 중입니다..."
                       : "버튼을 눌러 음성으로 답변하세요"}
                   </div>
+                  {isAnswering && answerTimeLeft !== null && (
+                    <div style={{
+                      marginTop: "10px",
+                      fontSize: "22px",
+                      fontWeight: "900",
+                      color: answerTimeLeft <= 10 ? "#E53E3E" : "#6BB5A6",
+                    }}>
+                      ⏱ {answerTimeLeft}초
+                    </div>
+                  )}
                 </div>
 
                 <button
@@ -1110,7 +1211,7 @@ const stopAnswerRecording = () => {
                         marginRight: "6px",
                       }}
                     />
-                    질문 건너뛰기
+                    결과 보기
                   </button>
 
                   <button

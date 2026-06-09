@@ -1,31 +1,29 @@
-# 1. 파이썬 캐시
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# 2. 데이터베이스
-*.db
-*.sqlite3
-presentation.db
-
-# 3. 가상환경
-.venv/
-.venv311/
-backend/.venv311/
-
-# 4. 영상 및 업로드 임시 파일
-uploads/
+# 업로드 / 미디어 파일
 backend/uploads/
-temp_audio.mp3
+uploads/
 *.mp4
 *.mov
 *.avi
 *.mkv
 *.webm
+temp_audio.mp3 # 변환용 임시 파일
 
-# 5. 보안 및 환경변수 (절대 올라가면 안 되는 것들)
-#api키
+# 데이터베이스
+*.db # 기록파일 충돌방지 및 버전관리
+
+# 환경변수
 .env
-# AWS 키
+
+# AWS 키 파일
 *.pem
+
+# 가상환경
+.venv/
+.venv311/
+backend/.venv311/
+
+# 파이썬 캐시
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
