@@ -230,6 +230,15 @@ async def get_ai_presentation_feedback(
         content = response.choices[0].message.content
         if not content: raise HTTPException(status_code=500, detail="AI 응답 생성 실패")
 
+        content = content.strip()
+        if content.startswith("```json"):
+            content = content[7:]
+        elif content.startswith("```"):
+            content = content[3:]
+        if content.endswith("```"):
+            content = content[:-3]
+        content = content.strip()
+        
         result = json.loads(content)
 
         struct_s = safe_float(result.get("structure_score", 0.0))

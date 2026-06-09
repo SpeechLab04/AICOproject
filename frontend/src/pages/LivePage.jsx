@@ -324,6 +324,13 @@ function LivePage() {
 
       const data = await response.json();
 
+      if (!response.ok || !data.questions) {
+        console.error("서버 에러 응답:", data);
+        alert("AI가 질문을 생성하는 데 실패했습니다. 다시 시도해 주세요.");
+        setIsAnalyzing(false);
+        return; // 에러가 났으니 아래 코드를 실행하지 않고 여기서 멈춤!
+      }
+      
       console.log("질문 생성 결과 =", data);
 
       setGeneratedQuestions(data.questions);
