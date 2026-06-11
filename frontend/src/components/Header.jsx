@@ -150,6 +150,7 @@ function Header({ showBack = false }) {
           }}
         >
           <MenuItem text="홈" onClick={() => navigate("/")} />
+          <MenuItem text="자료실" onClick={() => navigate("/resources")} />
 
           {user ? (
             <>

@@ -13,6 +13,7 @@ import PracticeModePage from "./pages/PracticeModePage";
 import ScenarioDetailPage from "./pages/ScenarioDetailPage";
 import PresentationSetupPage from "./pages/PresentationSetupPage";
 import ProtectedRoute from "./components/ProtectedRoute";
+import ResourcesPage from "./pages/ResourcesPage";
 
 function App() {
   return (
@@ -30,6 +31,7 @@ function App() {
         <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
         <Route path="/mypage" element={<ProtectedRoute><MyPage /></ProtectedRoute>} />
         <Route path="/records" element={<ProtectedRoute><RecordsPage /></ProtectedRoute>} />
+        <Route path="/resources" element={<ResourcesPage />} />
       </Routes>
     </BrowserRouter>
   );

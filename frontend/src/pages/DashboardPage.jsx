@@ -24,6 +24,7 @@ function DashboardPage() {
   const [selectedAnalysis, setSelectedAnalysis] = useState("video");
   const videoRef = useRef(null);
   const [voiceDetailResult, setVoiceDetailResult] = useState(null);
+  const [prevRecord, setPrevRecord] = useState(null);
 
   const analysisResult = JSON.parse(localStorage.getItem("analysisResult") || "null");
   const scenario = JSON.parse(localStorage.getItem("selectedScenario")) || { title: "학교 발표" };
@@ -68,6 +69,27 @@ function DashboardPage() {
   ];
 
   const videoTimeline = videoDashboard?.timeline || [];
+
+  useEffect(() => {
+    const fetchPrevRecord = async () => {
+      const token = localStorage.getItem("token");
+      if (!token || !analysisResult?.record_id) return;
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/records?limit=50&offset=0`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        const sorted = data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        const currentIdx = sorted.findIndex((r) => r.id === analysisResult.record_id);
+        if (currentIdx !== -1 && sorted[currentIdx + 1]) {
+          setPrevRecord(sorted[currentIdx + 1]);
+        }
+      } catch (e) {
+        console.error("이전 기록 조회 실패:", e);
+      }
+    };
+    fetchPrevRecord();
+  }, []);
 
   useEffect(() => {
     // 연습 횟수 증가
@@ -235,6 +257,33 @@ function DashboardPage() {
           </div>
           <strong style={{ fontSize: "18px" }}>발표 분석이 완료되었습니다 🎉</strong>
         </section>
+
+        {prevRecord && (
+          <section style={{ ...cardStyle, marginBottom: "28px" }}>
+            <h3 style={sectionTitle}>지난 발표 대비</h3>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)", gap: "12px" }}>
+              {[
+                { label: "종합", curr: totalScore, prev: Math.round(prevRecord.final_score || 0) },
+                { label: "영상", curr: Math.round(postureScore), prev: Math.round(prevRecord.delivery_score || 0) },
+                { label: "음성", curr: Math.round(voiceScore), prev: Math.round(prevRecord.voice_analysis?.summary?.voice_score || 0) },
+                { label: "내용", curr: Math.round(analysisResult?.script?.score || 0), prev: Math.round(prevRecord.content_score || 0) },
+              ].map(({ label, curr, prev }) => {
+                const diff = curr - prev;
+                const color = diff > 0 ? "#6BB5A6" : diff < 0 ? "#D96B4C" : "#9CA3AF";
+                const arrow = diff > 0 ? "▲" : diff < 0 ? "▼" : "—";
+                return (
+                  <div key={label} style={{ background: "#F8FCFA", borderRadius: "18px", padding: "16px 20px", border: "1px solid #E4F0EA" }}>
+                    <p style={{ fontSize: "13px", color: "#7AA5A0", fontWeight: "700", marginBottom: "6px" }}>{label} 점수</p>
+                    <p style={{ fontSize: isMobile ? "22px" : "28px", fontWeight: "900", color: "#2D3A3A" }}>{curr}점</p>
+                    <p style={{ fontSize: "13px", color, fontWeight: "700", marginTop: "4px" }}>
+                      {arrow} {diff !== 0 ? `${diff > 0 ? "+" : ""}${diff}점` : "동일"} <span style={{ color: "#9CA3AF", fontWeight: "400" }}>({prev}점)</span>
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         <section style={cardStyle}>
           <h3 style={sectionTitle}>
