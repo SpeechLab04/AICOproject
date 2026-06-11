@@ -212,6 +212,7 @@ function HomePage() {
           >
             <MenuItem text="홈" onClick={() => navigate("/")} />
             <MenuItem text="시나리오" onClick={handleScenarioClick} />
+            <MenuItem text="자료실" onClick={() => navigate("/resources")} />
 
             {user ? (
               <>
