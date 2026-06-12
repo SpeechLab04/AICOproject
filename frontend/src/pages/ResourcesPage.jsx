@@ -8,7 +8,7 @@ function ResourcesPage() {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const [selected, setSelected] = React.useState(null);
-  const [tab, setTab] = React.useState("tip");
+  const [tab, setTab] = React.useState("all");
 
   const handleClick = (id) => {
     const token = localStorage.getItem("token");
@@ -63,7 +63,7 @@ function ResourcesPage() {
 
         {/* 탭 */}
         <div style={{ display: "flex", gap: "10px", marginBottom: "24px" }}>
-          {[{ key: "all", label: "전체" }, { key: "tip", label: "발표 팁" }, { key: "guide", label: "발표 가이드" }].map(({ key, label }) => (
+          {[{ key: "all", label: "전체" }, { key: "tip", label: "발표 팁" }, { key: "insight", label: "발표 인사이트" }].map(({ key, label }) => (
             <button
               key={key}
               onClick={() => { setTab(key); setSelected(null); }}
@@ -85,7 +85,7 @@ function ResourcesPage() {
         </div>
 
         <div style={{ display: "grid", gap: "16px" }}>
-          {(tab === "all" ? RESOURCES : RESOURCES.filter((item) => item.category === tab)).map((item) => (
+          {(tab === "all" ? RESOURCES : RESOURCES.filter((item) => item.category === tab)).slice().reverse().map((item) => (
             <div
               key={item.id}
               onClick={() => handleClick(item.id)}
@@ -110,7 +110,7 @@ function ResourcesPage() {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                   <h3 style={{ fontSize: isMobile ? "16px" : "18px", fontWeight: "800", color: "#2D3A3A" }}>
-                    {item.title}
+                    {item.id}. {item.title}
                   </h3>
                   <span style={{
                     fontSize: "12px",
@@ -120,7 +120,7 @@ function ResourcesPage() {
                     background: item.category === "tip" ? "#E5F4EF" : "#E3F1FF",
                     color: item.category === "tip" ? "#4D8F82" : "#4E9CDC",
                   }}>
-                    {item.category === "tip" ? "발표 팁" : "발표 가이드"}
+                    {item.category === "tip" ? "발표 팁" : "발표 인사이트"}
                   </span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
@@ -130,11 +130,12 @@ function ResourcesPage() {
               </div>
               {selected === item.id && (
                 <div
+                  className="resources-content"
                   style={{
-                    marginTop: "16px",
+                    marginTop: "20px",
                     color: "#4B5563",
-                    fontSize: isMobile ? "14px" : "19px",
-                    lineHeight: "1.9",
+                    fontSize: isMobile ? "15px" : "18px",
+                    lineHeight: "2.2",
                     wordBreak: "keep-all",
                   }}
                 >

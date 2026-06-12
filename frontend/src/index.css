@@ -4,6 +4,15 @@
   box-sizing: border-box;
 }
 
+.resources-content p {
+  margin-bottom: 14px;
+}
+
+.resources-content h3 {
+  margin-top: 32px;
+  margin-bottom: 12px;
+}
+
 body {
   background: linear-gradient(
     180deg,
