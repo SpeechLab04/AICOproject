@@ -73,6 +73,7 @@ function LivePage() {
     localStorage.removeItem("analysisResult");
     localStorage.removeItem("uploadedVideoUrl");
     localStorage.removeItem("generatedQuestions");
+    localStorage.removeItem("qaAnswers"); // 추가
   }, []);
 
   // 전체화면 상태 감지

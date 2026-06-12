@@ -109,39 +109,22 @@ function VoiceDetail({
     color: statusColorMap[statusLabel] || "#AABFBB",
   };
 
-    const pauseCount = timeline?.pause_details?.length || 0;
-    const monotoneCount =
-      timeline?.monotone_sections?.length || 0;
+  const pauseCount = timeline?.pause_details?.length || 0;
 
-  const voiceMetrics = [
-    {
-      key: "delivery",
-      label: "전달력",
-      score: deliveryScore,
-      feedback:
-        "말하기 속도와 단조로움 구간 여부를 기반으로 평가했습니다.",
-    },
-    {
-      key: "fluency",
-      label: "유창성",
-      score: fluencyScore,
-      feedback:
-        "추임새, 반복 표현, 수정 발화를 기반으로 평가했습니다.",
-    },
-    {
-      key: "stability",
-      label: "안정성",
-      score: stabilityScore,
-      feedback:
-        pauseCount === 0
-          ? "긴 침묵 구간이 발견되지 않았습니다."
-          : `침묵 구간 ${pauseCount}회가 감지되었습니다.`
-    },
-  ];
+  const totalPauseDuration =
+  (timeline?.pause_details || []).reduce(
+    (sum, p) => sum + p.duration,
+    0
+  );
+  
+  const monotoneCount =
+    timeline?.monotone_sections?.length || 0;
 
-  const voiceTotalScore = vibrancyScore > 0
-    ? Math.round(voiceMetrics.reduce((sum, m) => sum + m.score, 0) / voiceMetrics.length)
-    : 0;
+  const monotoneDuration =
+    (timeline?.monotone_sections || []).reduce(
+      (sum, sec) => sum + (sec.end - sec.start),
+      0
+    );
 
   const maxPauseTime = Math.max(
     ...((timeline?.pause_details || []).map(
@@ -154,6 +137,77 @@ function VoiceDetail({
     summary?.total_duration > 0
       ? summary.total_duration
       : maxPauseTime;
+
+  const monotoneRatio =
+    totalDuration > 0
+      ? Math.round((monotoneDuration / totalDuration) * 100)
+      : 0;
+
+  const noVoice =
+    score === 0 ||
+    speedWpm === 0;
+
+  const voiceMetrics = [
+    {
+      key: "delivery",
+      label: "전달력",
+      score: deliveryScore,
+      feedback:
+        noVoice
+          ? "음성이 감지되지 않아 전달력을 분석할 수 없습니다."
+          : monotoneRatio >= 50
+          ? `발표의 ${monotoneRatio}%가 단조롭게 분석되었습니다. 억양 변화가 부족해 청중의 집중력이 떨어질 수 있습니다.`
+          : monotoneRatio >= 30
+          ? `발표의 ${monotoneRatio}%가 단조롭게 분석되었습니다. 중요한 부분에서는 강세와 억양 변화를 더 주어보세요.`
+          : speedWpm < 80
+          ? "말하기 속도가 다소 느립니다. 조금 더 자신감 있게 핵심 내용을 전달해보세요."
+          : speedWpm > 160
+          ? "말하기 속도가 빠른 편입니다. 문장 사이에 짧은 호흡을 추가하면 이해하기 쉬워집니다."
+          : "적절한 속도와 억양으로 발표가 진행되었습니다."
+    },
+    {
+      key: "fluency",
+      label: "유창성",
+      score: fluencyScore,
+      feedback:
+        noVoice
+          ? "음성이 감지되지 않아 유창성을 분석할 수 없습니다."
+          : fillerCount >= 5
+          ? `습관어가 ${fillerCount}회 감지되었습니다. '음', '어' 대신 잠시 멈추고 생각하는 습관을 들여보세요.`
+          : fillerCount > 0
+          ? `습관어가 ${fillerCount}회 감지되었습니다. 조금만 줄이면 더욱 자연스러운 발표가 가능합니다.`
+          : "습관어와 반복 표현이 거의 없어 자연스럽게 발표했습니다."
+    },
+    {
+      key: "stability",
+      label: "안정성",
+      score: stabilityScore,
+      feedback:
+        noVoice
+          ? "음성이 감지되지 않아 안정성을 분석할 수 없습니다."
+          : totalPauseDuration < 1
+          ? "긴 침묵 없이 안정적으로 발표를 이어갔습니다."
+          : totalPauseDuration < 3
+          ? `총 ${totalPauseDuration.toFixed(1)}초의 침묵이 감지되었습니다. 전반적으로 안정적인 발표였습니다.`
+          : totalPauseDuration < 5
+          ? `총 ${totalPauseDuration.toFixed(1)}초의 침묵이 감지되었습니다. 발표 흐름이 다소 끊겼습니다.`
+          : totalPauseDuration < 8
+          ? `총 ${totalPauseDuration.toFixed(1)}초의 침묵이 감지되었습니다. 발표 전 연습을 조금 더 해보세요.`
+          : `총 ${totalPauseDuration.toFixed(1)}초의 침묵이 감지되었습니다. 발표 흐름이 자주 끊겨 안정성이 낮게 평가되었습니다.`
+    },
+  ];
+
+  const voiceTotalScore = score || 0;
+
+  console.log("score =", score);
+  console.log("delivery =", deliveryScore);
+  console.log("fluency =", fluencyScore);
+  console.log("stability =", stabilityScore);
+
+  console.log("monotoneDuration =", monotoneDuration);
+  console.log("totalDuration =", totalDuration);
+  console.log("monotoneRatio =", monotoneRatio);
+
   console.log("timeline =", timeline);
   console.log("pause_details =", timeline?.pause_details);
   console.log("monotone_sections =", timeline?.monotone_sections);
@@ -190,7 +244,7 @@ function VoiceDetail({
         <p style={{ color: "#4B5563", fontSize: fs.body, lineHeight: "1.8", flex: 1 }}>
           {voiceTotalScore > 0
             ? "음성의 전달력, 유창성, 안정성을 종합 분석했습니다."
-            : "음성 분석 결과가 아직 인식되지 않았습니다. 조용한 환경에서 또렷한 목소리로 다시 촬영해보세요."}
+            : "음성 분석 결과가 인식되지 않았습니다. 조용한 환경에서 또렷한 목소리로 다시 촬영해보세요."}
         </p>
       </div>
 
@@ -205,12 +259,12 @@ function VoiceDetail({
         />
         <StatCard
           label="단조로움"
-          value={monotoneCount}
-          unit="구간"
+          value={monotoneRatio}
+          unit="%"
           badge={
-            monotoneCount === 0
+            monotoneRatio < 10
               ? "좋음"
-              : monotoneCount <= 2
+              : monotoneRatio < 30
               ? "보통"
               : "주의"
           }

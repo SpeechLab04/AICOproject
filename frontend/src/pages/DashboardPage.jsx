@@ -137,6 +137,8 @@ function DashboardPage() {
 
   const voiceData = voiceDetailResult || analysisResult?.voice || {};
   const voiceSummary = voiceData.summary || {};
+  const monotoneRatio =
+    voiceSummary.monotone_ratio || 0;
   console.log("voiceSummary =", JSON.stringify(voiceSummary, null, 2));
   const voiceHabits = voiceData.speech_habits || {};
   const voiceTimeline = voiceData.timeline_events || {};
@@ -158,10 +160,19 @@ function DashboardPage() {
   const contentCritique = analysisResult?.script?.content_critique || "내용 비평 데이터를 불러올 수 없습니다.";
   const scriptText = analysisResult?.script?.full_script || "스크립트 결과가 없습니다.";
   const generalQuestions = analysisResult?.script?.general_questions || [];
-  const realtimeQuestions =
-    JSON.parse(
-      localStorage.getItem("generatedQuestions")
-    ) || [];
+  let realtimeQuestions = [];
+
+  try {
+    const stored = localStorage.getItem("generatedQuestions");
+
+    realtimeQuestions =
+      stored &&
+      stored !== "undefined"
+        ? JSON.parse(stored)
+        : [];
+  } catch (e) {
+    realtimeQuestions = [];
+  }
 
   const personaQuestions =
     realtimeQuestions.length > 0
@@ -203,6 +214,16 @@ function DashboardPage() {
     answer: qaAnswers[index]?.answer || "",
     skipped: qaAnswers[index]?.skipped || false,
   }));
+
+  console.log(
+    "audienceQuestions =",
+    JSON.stringify(audienceQuestions, null, 2)
+  );
+
+  console.log(
+    "qaAnswers =",
+    JSON.stringify(qaAnswers, null, 2)
+  );
 
   return (
     <div style={{ minHeight: "100vh", background: "#F8FCFA", color: "#2F3E46" }}>

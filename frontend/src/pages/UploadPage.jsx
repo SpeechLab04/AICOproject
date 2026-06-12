@@ -55,6 +55,10 @@ function UploadPage() {
       return;
     }
 
+    // 이전 실시간 발표 데이터 제거
+    localStorage.removeItem("qaAnswers");
+    localStorage.removeItem("generatedQuestions");
+
     setIsAnalyzing(true);
 
     const formData = new FormData();
