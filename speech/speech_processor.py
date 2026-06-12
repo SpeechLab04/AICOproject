@@ -92,7 +92,7 @@ def analyze_speech_vibrancy(audio_path, segments):
                     f"std={pitch_std:.2f}"
                 )
 
-                if pitch_std < 90:
+                if pitch_std < 85:
 
                     print(
                         f"[MONOTONE DETECTED] "
@@ -257,16 +257,11 @@ def run_detailed_analysis(
         filler_patterns = [
             "음",
             "어",
-            "그",
-            "이제",
+            "음...",
+            "어...",
+            "아...",
             "저기",
-            "막",
-            "약간",
-            "뭐랄까",
-            "사실",
-            "그러니까",
-            "아",
-            "일단"
+            "뭐랄까"
         ]
 
         # segment 기반 필러 검출
@@ -345,7 +340,7 @@ def run_detailed_analysis(
                 - segments[i]['end']
             )
 
-            if gap >= 2.0:
+            if gap >= 1.5:
                 pauses.append({
                     "at": round(segments[i]['end'], 1),
                     "duration": round(gap, 1)
@@ -356,6 +351,35 @@ def run_detailed_analysis(
             seg['end'] - seg['start']
             for seg in segments
         )
+        
+        # 음성이 거의 없는 경우
+        if len(segments) == 0 or speech_duration < 3.0:
+
+            analysis_results[file_id] = {
+                "success": True,
+
+                "summary": {
+                    "wpm": 0,
+                    "vibrancy_score": 0,
+                    "voice_score": 0,
+                    "delivery_score": 0,
+                    "fluency_score": 0,
+                    "stability_score": 0,
+                    "monotone_count": 0,
+                    "status": "음성 없음",
+                    "color": "Red",
+                    "feedback": "음성이 감지되지 않았습니다.",
+                    "total_duration": round(duration_sec, 1),
+                    "speech_duration": round(speech_duration, 1)
+                },
+
+                "speech_habits": {},
+                "timeline_events": {},
+                "segments": []
+            }
+
+            return
+        
 
         # 한국어 기반 속도 계산
         cleaned_text = re.sub(r"\s+", "", full_text)
@@ -385,19 +409,32 @@ def run_detailed_analysis(
 
         monotone_count = len(monotone_timeline)
 
-        monotone_penalty = min(
-            monotone_count * 7,
-            35
+        monotone_duration = sum(
+            sec["end"] - sec["start"]
+            for sec in monotone_timeline
         )
 
-        delivery_score = max(
-            wpm_score - monotone_penalty,
-            40
+        monotone_ratio = (
+            monotone_duration / duration_sec * 100
+            if duration_sec > 0 else 0
         )
 
+        # 단조로움 점수
+        monotone_score = round(
+            max(100 - monotone_ratio, 0),
+            1
+        )
+
+        # 전달력 계산
+        delivery_score = round(
+            wpm_score * 0.4 +
+            monotone_score * 0.6
+        )
+
+        print("monotone_duration =", monotone_duration)
+        print("monotone_ratio =", round(monotone_ratio, 1))
+        print("monotone_score =", monotone_score)
         print("wpm_score =", wpm_score)
-        print("monotone_count =", monotone_count)
-        print("monotone_penalty =", monotone_penalty)
         print("delivery_score =", delivery_score)
         # ========================
         # 유창성
@@ -430,32 +467,43 @@ def run_detailed_analysis(
 
         pause_count = len(pauses)
 
-
         print("pause_count =", pause_count)
         print("pause_details =", pauses)
-        
-        if pause_count <= 2:
+
+        # 총 침묵 시간 계산
+        total_pause_duration = sum(
+            p["duration"]
+            for p in pauses
+        )
+
+        print("total_pause_duration =", total_pause_duration)
+
+        # 총 침묵 시간 기준 안정성 계산
+        if total_pause_duration < 1:
             stability_score = 100
-        elif pause_count <= 5:
+        elif total_pause_duration < 3:
+            stability_score = 90
+        elif total_pause_duration < 5:
             stability_score = 80
-        elif pause_count <= 8:
+        elif total_pause_duration < 8:
             stability_score = 60
         else:
             stability_score = 40
 
-
+        print("stability_score =", stability_score)
 
         # ========================
         # 종합점수
         # ========================
 
         print("monotone_count =", monotone_count)
-        print("monotone_penalty =", monotone_penalty)
+        print("monotone_ratio =", round(monotone_ratio, 1))
+        print("monotone_score =", monotone_score)
 
         voice_score = round(
-            delivery_score * 0.40 +
-            fluency_score * 0.35 +
-            stability_score * 0.25
+            delivery_score * 0.50 +
+            fluency_score * 0.30 +
+            stability_score * 0.20
         )
 
         print("===== 음성 분석 디버그 =====")
@@ -478,6 +526,7 @@ def run_detailed_analysis(
                 "fluency_score": fluency_score,
                 "stability_score": stability_score,
                 "monotone_count": monotone_count,
+                "monotone_ratio": round(monotone_ratio, 1),
                 
                 "status": wpm_eval["status"],
                 "color": wpm_eval["color"],
@@ -572,6 +621,46 @@ def process_voice_analysis(
                 response_format="verbose_json",
                 prompt="음, 어, 그, 이제, 저기, 막, 약간, 뭐랄까..."
             )
+
+        # 실제 음량 측정
+        y, sr = librosa.load(audio_temp_path)
+
+        rms = np.mean(librosa.feature.rms(y=y))
+
+        print("RMS =", rms)
+
+        print(f"[RMS CHECK] {rms}")
+
+        if rms < 0.005:
+            print("[RMS CHECK] 무음으로 판정")
+        
+            analysis_results[file_id] = {
+                "success": True,
+                "summary": {
+                    "wpm": 0,
+                    "vibrancy_score": 0,
+                    "voice_score": 0,
+                    "delivery_score": 0,
+                    "fluency_score": 0,
+                    "stability_score": 0,
+                    "monotone_count": 0,
+                    "status": "음성 없음",
+                    "color": "Red",
+                    "feedback": "음성이 감지되지 않았습니다.",
+                    "total_duration": round(duration_sec, 1),
+                    "speech_duration": 0
+                },
+                "speech_habits": {},
+                "timeline_events": {},
+                "segments": []
+            }
+
+            return {
+                "success": True,
+                "file_id": file_id,
+                "full_script": "",
+                **analysis_results[file_id]
+            }
 
         full_text = transcript.text
 

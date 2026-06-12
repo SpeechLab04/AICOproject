@@ -285,8 +285,11 @@ async def upload_video(
             visual_analysis=vision_result,
         )
 
+        print("before db.commit()")
         db.add(new_record)
         db.commit()
+        
+        print("after db.commit()")
         db.refresh(new_record)
 
         if not new_record.title:
