@@ -537,6 +537,239 @@ const RESOURCES = [
       </>
     ),
   },
+  {
+    id: 6,
+    category: "insight",
+    title: "발표는 내용만으로 평가되지 않는다",
+    date: "2026.06.13",
+    content: (
+      <>
+        <p>많은 사람들은 발표를 잘하려면 내용을 잘 준비해야 한다고 생각합니다.</p>
+        <p>물론 맞는 이야기입니다.</p>
+        <p>하지만 실제 발표에서는 내용만큼 중요한 것이 있습니다.</p>
+        <p>바로 <strong>비언어적 의사소통(Nonverbal Communication)</strong>입니다.</p>
+        <p>발표자는 말을 통해 정보를 전달하지만, 청중은 말뿐 아니라 목소리와 표정, 시선, 자세 같은 요소도 함께 받아들입니다.</p>
+        <p>실제로 발표 교육 연구에서는 발표 수행에 영향을 주는 비언어적 표현을 크게 세 가지 영역으로 나누어 설명합니다.</p>
+
+        <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid #E5F0EC" }} />
+
+        <h3 style={{ fontSize: "22px", fontWeight: "800", marginBottom: "12px", color: "#2D3A3A" }}>1. 부차 언어 (Para-language)</h3>
+        <p>부차 언어는 말의 내용이 아니라 <strong>말하는 방식</strong>입니다.</p>
+        <ul style={{ paddingLeft: "20px", lineHeight: "2.2" }}>
+          <li>말하기 속도</li>
+          <li>목소리 크기</li>
+          <li>억양 / 강세</li>
+          <li>휴지(Pause)</li>
+          <li>"어", "음" 같은 담화표지</li>
+        </ul>
+        <p>같은 문장을 말하더라도,</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px", margin: "12px 0" }}>
+          <p style={{ background: "#E5F4EF", padding: "12px 16px", borderRadius: "8px", borderLeft: "4px solid #6BB5A6", color: "#2D6B5E" }}>
+            "이번 프로젝트의 핵심 목표는 사용자 경험 개선입니다."
+          </p>
+          <p style={{ background: "#FEF0EF", padding: "12px 16px", borderRadius: "8px", borderLeft: "4px solid #E5534B", color: "#7A3030" }}>
+            "이번 프로젝트의... 음... 핵심 목표는..."
+          </p>
+        </div>
+        <p>는 전혀 다른 인상을 줍니다. 청중은 내용뿐 아니라 전달 방식에서도 발표자의 자신감과 준비도를 판단합니다.</p>
+
+        <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid #E5F0EC" }} />
+
+        <h3 style={{ fontSize: "22px", fontWeight: "800", marginBottom: "12px", color: "#2D3A3A" }}>2. 신체 언어 (Body Language)</h3>
+        <p>발표자는 말하지 않아도 계속 메시지를 전달하고 있습니다.</p>
+        <p>대표적인 요소는 시선, 표정, 손동작(제스처), 자세, 몸 움직임, 고개 방향 등입니다.</p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", margin: "16px 0" }}>
+          <div style={{ background: "#E5F4EF", borderRadius: "12px", padding: "16px", border: "1.5px solid #6BB5A6" }}>
+            <div style={{ fontWeight: "800", color: "#4D8F82", marginBottom: "8px" }}>✅ 긍정적인 신체 언어</div>
+            <ul style={{ paddingLeft: "18px", lineHeight: "2", fontSize: "14px", color: "#3D7A6E" }}>
+              <li>청중과 시선을 맞춤</li>
+              <li>자연스러운 손동작</li>
+              <li>안정적인 자세 유지</li>
+              <li>자신감 있는 표정</li>
+            </ul>
+          </div>
+          <div style={{ background: "#FEF0EF", borderRadius: "12px", padding: "16px", border: "1.5px solid #E5534B" }}>
+            <div style={{ fontWeight: "800", color: "#C0392B", marginBottom: "8px" }}>❌ 부정적인 신체 언어</div>
+            <ul style={{ paddingLeft: "18px", lineHeight: "2", fontSize: "14px", color: "#7A3030" }}>
+              <li>화면만 계속 바라보기</li>
+              <li>손가락 만지작거리기</li>
+              <li>몸을 흔들기</li>
+              <li>시선 회피</li>
+            </ul>
+          </div>
+        </div>
+
+        <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid #E5F0EC" }} />
+
+        <h3 style={{ fontSize: "22px", fontWeight: "800", marginBottom: "12px", color: "#2D3A3A" }}>3. 상황 언어 (Contextual Language)</h3>
+        <p>상황 언어는 <strong>발표 환경 자체</strong>를 의미합니다.</p>
+        <ul style={{ paddingLeft: "20px", lineHeight: "2.2" }}>
+          <li>복장</li>
+          <li>발표 공간 활용</li>
+          <li>시각 자료 사용</li>
+          <li>시간 관리</li>
+        </ul>
+        <p>발표 실력이 비슷하더라도 이러한 요소에 따라 전문성이 다르게 인식될 수 있습니다.</p>
+
+        <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid #E5F0EC" }} />
+
+        <h3 style={{ fontSize: "22px", fontWeight: "800", marginBottom: "12px", color: "#2D3A3A" }}>좋은 발표는 '말'만으로 만들어지지 않는다</h3>
+        <p>이 연구가 중요한 이유는 발표를 단순히 "무슨 말을 했는가"로 보지 않았다는 점입니다.</p>
+        <p>연구자는 발표의 전달력을 결정하는 요소로 음성 표현, 시선, 표정, 제스처, 자세 등을 함께 분석해야 한다고 설명합니다.</p>
+        <p>즉, 좋은 발표는 내용을 잘 준비하는 것에서 끝나는 것이 아니라, <strong>청중이 어떻게 받아들이는지까지 고려하는 것</strong>에서 완성됩니다.</p>
+
+        <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid #E5F0EC" }} />
+
+        <details style={{ cursor: "pointer" }} onClick={(e) => e.stopPropagation()}>
+          <summary style={{ fontSize: "15px", fontWeight: "700", color: "#7AA5A0", listStyle: "none", display: "flex", alignItems: "center", gap: "6px" }}>
+            ▶ 참고 자료
+          </summary>
+          <ul style={{ paddingLeft: "20px", lineHeight: "2.2", fontSize: "15px", marginTop: "10px" }}>
+            <li>
+              <a href="https://www.riss.kr/search/detail/DetailView.do?p_mat_type=be54d9b8bc7cdb09&control_no=63784ec3a20fee80ffe0bdc3ef48d419&keyword=%EB%B9%84%EC%96%B8%EC%96%B4%EC%A0%81%20%EC%9D%98%EC%82%AC%EC%86%8C%ED%86%B5%20%EB%B0%9C%ED%91%9C" target="_blank" rel="noreferrer" style={{ color: "#4D8F82" }}>
+                권대호 (2011). 발표 활동의 비언어적 표현 특징과 교육 방법. 한양대학교 대학원 석사학위논문.
+              </a>
+            </li>
+          </ul>
+        </details>
+      </>
+    ),
+  },
+  {
+    id: 7,
+    category: "insight",
+    title: "발표가 떨리는 이유는 무엇일까?",
+    date: "2026.06.13",
+    content: (
+      <>
+        <h3 style={{ fontSize: "22px", fontWeight: "800", marginBottom: "12px", color: "#2D3A3A" }}>발표가 떨리는 진짜 이유는 무엇일까?</h3>
+        <p>발표를 앞두고 심장이 빨리 뛰거나 머리가 하얘진 경험이 있나요?</p>
+        <p>많은 사람들은 자신이 원래 발표 체질이 아니거나 자신감이 부족해서 긴장한다고 생각합니다.</p>
+        <p>하지만 발표 불안의 가장 큰 원인은 의외로 단순합니다.</p>
+        <p style={{ color: "#4D8F82", fontWeight: "700" }}>바로 경험 부족입니다.</p>
+
+        <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid #E5F0EC" }} />
+
+        <h3 style={{ fontSize: "22px", fontWeight: "800", marginBottom: "12px", color: "#2D3A3A" }}>발표가 떨리는 이유는 경험이 부족하기 때문이다</h3>
+        <p>우리는 일상에서 가족, 친구, 동료와 자연스럽게 대화합니다. 하지만 여러 사람 앞에 서서 자신의 생각을 전달하는 경험은 생각보다 많지 않습니다.</p>
+        <p>인간의 뇌는 본능적으로 낯선 상황을 위험하게 인식하는 경향이 있습니다. 그래서 발표 경험이 부족하면 무대나 많은 사람들의 시선을 낯설고 불편한 상황으로 받아들이게 됩니다.</p>
+        <p>결국 발표 불안은 <strong>"나는 발표를 못해"</strong>가 아니라,</p>
+        <p style={{ color: "#4D8F82", fontWeight: "600" }}>"이 상황이 아직 익숙하지 않다"</p>
+        <p>에 더 가깝습니다.</p>
+
+        <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid #E5F0EC" }} />
+
+        <h3 style={{ fontSize: "22px", fontWeight: "800", marginBottom: "12px", color: "#2D3A3A" }}>발표 불안을 줄이는 가장 좋은 방법</h3>
+
+        <h3 style={{ fontSize: "18px", fontWeight: "800", marginTop: "16px", marginBottom: "8px", color: "#4D8F82" }}>1. 작은 발표 경험부터 늘리기</h3>
+        <p>발표 실력은 발표를 통해서만 늘어납니다.</p>
+        <p>스터디 모임, 동아리, 발표 모임처럼 사람들 앞에서 말할 수 있는 기회를 찾아보세요.</p>
+        <p>청중이 3명이든 30명이든 중요하지 않습니다. 중요한 것은 <strong>"여러 사람 앞에서 말하는 경험"</strong> 자체입니다.</p>
+        <p>작은 무대 경험이 쌓일수록 발표는 더 이상 낯선 일이 아니게 됩니다.</p>
+
+        <h3 style={{ fontSize: "18px", fontWeight: "800", marginTop: "24px", marginBottom: "8px", color: "#4D8F82" }}>2. 카메라 앞에서 연습하기</h3>
+        <p>실제 발표 기회를 만들기 어렵다면 카메라를 활용해 보세요.</p>
+        <p>발표하는 모습을 촬영하면 말버릇, 시선 처리, 자세, 제스처, 말 속도 등을 객관적으로 확인할 수 있습니다.</p>
+        <p>많은 사람들이 자신의 영상을 보는 것을 어색해하지만, 실전에서 실수하는 것보다 훨씬 효과적인 연습 방법입니다.</p>
+
+        <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid #E5F0EC" }} />
+
+        <h3 style={{ fontSize: "22px", fontWeight: "800", marginBottom: "12px", color: "#2D3A3A" }}>발표가 떨린다면 대본보다 '키워드'를 준비하자</h3>
+        <p>특히 대본을 통째로 외우는 방식은 오히려 불안을 키울 수 있습니다. 한 문장을 잊는 순간 흐름 전체가 무너지기 때문입니다.</p>
+        <p>그래서 중요한 것은 암기가 아니라 <strong>이해</strong>입니다.</p>
+        <p>발표 내용을 핵심 키워드 중심으로 정리해 보세요. 내용을 충분히 이해하고 있다면 표현이 조금 달라져도 자연스럽게 설명할 수 있습니다.</p>
+
+        <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid #E5F0EC" }} />
+
+        <h3 style={{ fontSize: "22px", fontWeight: "800", marginBottom: "12px", color: "#2D3A3A" }}>모든 청중을 만족시키려고 하지 마세요</h3>
+        <p>발표를 하다 보면 무표정하거나 관심 없어 보이는 사람이 눈에 들어올 때가 있습니다.</p>
+        <p>대신 여러분의 이야기를 잘 들어주는 사람을 찾아보세요. 고개를 끄덕이거나, 눈을 맞추며 반응해 주는 사람과 먼저 대화한다고 생각해보세요.</p>
+        <p>청중이 많아도 결국 발표는 사람과 사람의 소통입니다. 처음에는 한 명과 대화한다는 마음으로 시작해 보세요.</p>
+
+        <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid #E5F0EC" }} />
+
+        <h3 style={{ fontSize: "22px", fontWeight: "800", marginBottom: "12px", color: "#2D3A3A" }}>실수해도 괜찮다</h3>
+        <p>많은 사람들이 발표를 무대 공연처럼 생각합니다. 하지만 발표는 완벽한 연기가 아닙니다. 생각을 전달하는 과정입니다.</p>
+        <p>말이 꼬이거나 내용이 생각나지 않을 때는 잠시 숨을 고르고,</p>
+        <p style={{ color: "#4D8F82", fontWeight: "600" }}>"죄송합니다. 다시 말씀드리겠습니다."</p>
+        <p>라고 말한 뒤 이어가면 됩니다. 대부분의 청중은 작은 실수에 크게 신경 쓰지 않습니다. 오히려 실수 이후 어떻게 대처하는지를 더 중요하게 봅니다.</p>
+        <p>좋은 발표자는 실수를 하지 않는 사람이 아니라, <strong>실수해도 빠르게 다음 내용으로 넘어가는 사람</strong>입니다.</p>
+
+        <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid #E5F0EC" }} />
+
+        <h3 style={{ fontSize: "22px", fontWeight: "800", marginBottom: "12px", color: "#2D3A3A" }}>발표 불안을 줄이는 3가지 핵심</h3>
+        <div style={{ lineHeight: "2.4" }}>
+          <p>✅ 경험을 늘려 낯설지 않게 만들기</p>
+          <p>✅ 대본 암기보다 키워드 중심으로 이해하기</p>
+          <p>✅ 실수해도 괜찮다고 생각하기</p>
+        </div>
+        <p>발표 불안은 없애야 하는 감정이 아니라, 익숙해져야 하는 감정입니다. 경험이 쌓일수록 긴장은 줄어들고, 자신감은 자연스럽게 따라오게 됩니다.</p>
+      </>
+    ),
+  },
+  {
+    id: 8,
+    category: "tip",
+    title: "발표가 떨린다면, 청중을 초등학생이라고 생각해 보세요",
+    date: "2026.06.13",
+    content: (
+      <>
+        <p>발표를 앞두고 긴장되는 이유 중 하나는 청중을 너무 대단한 사람으로 생각하기 때문입니다.</p>
+        <p>교수님 앞에서는 교수님이, 면접에서는 면접관이, 발표장에서는 청중이 마치 내 실수를 기다리고 있는 심사위원처럼 느껴질 때가 있습니다.</p>
+        <p>하지만 실제로는 그렇지 않습니다. 청중은 여러분을 평가하기 위해서만 앉아 있는 사람들이 아닙니다. 오히려 대부분은</p>
+        <p style={{ color: "#4D8F82", fontWeight: "600" }}>"그래서 무슨 이야기인데?"</p>
+        <p>를 궁금해하는 사람들입니다.</p>
+
+        <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid #E5F0EC" }} />
+
+        <h3 style={{ fontSize: "22px", fontWeight: "800", marginBottom: "12px", color: "#2D3A3A" }}>"내가 가장 잘 아는 사람이다"라고 생각해 보세요</h3>
+        <p>발표를 준비했다면 적어도 그 시간만큼은 여러분이 그 주제에 대해 가장 많이 고민한 사람입니다.</p>
+        <p>청중이 교수님이든, 면접관이든, 동료든 상관없습니다. 발표하는 순간만큼은 여러분이 전달하려는 내용에 대해 가장 잘 알고 있는 사람일 가능성이 높습니다.</p>
+        <p>그래서 발표할 때는</p>
+        <p style={{ color: "#4D8F82", fontWeight: "600" }}>"내가 이 내용을 모르는 사람에게 설명해 준다."</p>
+        <p>는 마음으로 접근하는 것이 좋습니다.</p>
+
+        <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid #E5F0EC" }} />
+
+        <h3 style={{ fontSize: "22px", fontWeight: "800", marginBottom: "12px", color: "#2D3A3A" }}>초등학생에게 설명한다고 생각해 보세요</h3>
+        <p>발표를 어려워하는 사람들의 공통점이 있습니다. 너무 어려운 표현을 쓰려고 한다는 것입니다.</p>
+        <p>전문가처럼 보이고 싶어서 긴 문장, 어려운 용어, 복잡한 설명을 사용하려고 합니다.</p>
+        <p>하지만 좋은 발표자는 반대입니다. <strong>복잡한 내용을 쉽게 설명하는 사람</strong>입니다.</p>
+        <p>그래서 발표를 준비할 때는 한 번 스스로에게 물어보세요.</p>
+        <p style={{ color: "#4D8F82", fontWeight: "600" }}>"이 내용을 초등학생에게 설명한다면 어떻게 말할까?"</p>
+        <p>신기하게도 이렇게 생각하면 말이 훨씬 자연스러워집니다.</p>
+
+        <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid #E5F0EC" }} />
+
+        <h3 style={{ fontSize: "22px", fontWeight: "800", marginBottom: "12px", color: "#2D3A3A" }}>청중은 생각보다 여러분을 모릅니다</h3>
+        <p>발표를 하다 보면 "내가 긴장한 게 티 나겠지?", "방금 실수한 거 다 알았겠지?" 라는 생각이 들 때가 있습니다.</p>
+        <p>그런데 청중은 여러분이 원래 어떻게 말하는 사람인지 모릅니다. 원래 대본이 어떻게 생겼는지도, 원래 준비했던 문장이 무엇인지도 모릅니다.</p>
+        <p><strong>여러분만 알고 있습니다.</strong></p>
+        <p>그래서 작은 실수 하나에 너무 집착할 필요가 없습니다. 대부분의 청중은 여러분이 생각하는 만큼 여러분을 자세히 보고 있지 않습니다.</p>
+
+        <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid #E5F0EC" }} />
+
+        <h3 style={{ fontSize: "22px", fontWeight: "800", marginBottom: "12px", color: "#2D3A3A" }}>청중을 무서워하지 말고, 도와준다고 생각하세요</h3>
+        <p>발표를 평가받는 자리라고 생각하면 긴장됩니다. 하지만 누군가에게 도움을 주는 자리라고 생각하면 마음이 훨씬 편해집니다.</p>
+        <p>발표는 시험이 아닙니다. 내가 알고 있는 것을 상대방에게 전달하는 과정입니다.</p>
+        <p>그래서 발표 전에 이런 생각을 해보세요.</p>
+        <p style={{ color: "#4D8F82", fontWeight: "600" }}>"나는 지금 이 사람들에게 도움이 되는 정보를 알려주러 왔다."</p>
+        <p>이 생각 하나만으로도 시선은 자신에게서 청중으로 옮겨갑니다. 그리고 신기하게도 긴장은 줄어들고 전달력은 좋아집니다.</p>
+
+        <hr style={{ margin: "24px 0", border: "none", borderTop: "1px solid #E5F0EC" }} />
+
+        <h3 style={{ fontSize: "22px", fontWeight: "800", marginBottom: "12px", color: "#2D3A3A" }}>발표 전에 이것만 기억하세요</h3>
+        <ul style={{ paddingLeft: "20px", lineHeight: "2.4" }}>
+          <li>청중은 생각보다 나를 평가하지 않는다.</li>
+          <li>나는 이 내용에 대해 가장 많이 고민한 사람이다.</li>
+          <li>초등학생에게 설명하듯 쉽게 말한다.</li>
+          <li>발표는 시험이 아니라 전달이다.</li>
+          <li>실수해도 대부분의 사람은 눈치채지 못한다.</li>
+        </ul>
+        <p>발표를 잘하는 사람은 특별한 사람이 아닙니다. 복잡한 내용을 쉽게 설명하고, 청중을 설득의 대상이 아니라 <strong>대화의 대상</strong>으로 바라보는 사람입니다.</p>
+      </>
+    ),
+  },
 ];
 
 export default RESOURCES;
