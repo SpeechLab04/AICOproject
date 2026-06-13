@@ -773,7 +773,7 @@ def transcribe_answer(file: UploadFile):
                 file=audio_file,
                 language="ko",         # 1. 무조건 한국어(ko)로 인식하도록 강제
                 temperature=0.0,       # 2. 창의성을 0으로 만들어 AI의 '상상(환각)'을 차단
-                prompt="이것은 학생의 발표 답변입니다. 아무 소리도 들리지 않거나 잡음만 있다면 텍스트를 생성하지 마세요."
+                prompt=""
             )
 
         answer_text = transcript.text.strip()
@@ -782,19 +782,14 @@ def transcribe_answer(file: UploadFile):
             "시청해주셔서감사합니다",
             "오늘도시청해주셔서",
             "구독과좋아요",
-            "thankyouforwatching",
-            "lalala",
             "자막",
-            "mbc",
-            "sbs",
-            "kbs"
         ]
         is_hallucination = any(h in text_no_space for h in hallucinations)
         if not answer_text or is_hallucination or len(text_no_space) <= 1:
             answer_text = "답변 내용이 없습니다."
         return {
             "success": True,
-            "transcript": transcript.text
+            "transcript": answer_text
         }
 
     except Exception as e:
