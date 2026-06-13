@@ -81,7 +81,7 @@ def get_weak_presentation_response(selected_personas: List[str]) -> dict:
             "weakness": ["정보량 지나치게 짧음", "구체적 근거 생략", "거시 논리 구조 결여"],
             "improvement": ["핵심 본문 3문장 이상 추가", "주요 특징 및 구현내용 서술", "정보를 풍부하게 서술 후 재도전"]
         },
-        "structure_score": 35.0, "evidence_score": 15.0, "expression_score": 25.0, "content_score": 25.0, "final_score": 25.0 
+        "structure_score": 10.0, "evidence_score": 5.0, "expression_score": 10.0, "content_score": 10.0, "final_score": 10.0 
     }
 
 
@@ -116,7 +116,7 @@ def generate_system_prompt(selected_personas: List[str], topic: str) -> str:
 # Evaluation Rubric (100점 만점 기준 정밀 채점)
 1. structure_score (가중치 40%): 오프닝 및 도입->전개->결론 흐름의 명확성
 2. evidence_score (가중치 40%): 지정 주제인 **[{display_topic}]**에 걸맞은 데이터/학술적/기술적 근거의 풍부함과 설득력
-3. expression_score (가중치 20%): 해당 학과 및 지정 주제에 적합한 전공/전문 어휘 구사력 및 내용 전달의 유연성 (★실시간 질의응답력은 채점 제외)
+3. expression_score (가중치 20%): 복잡한 개념이나 데이터를 청중이 이해하기 쉽게 명확하고 간결하게 설명하는 능력 및 불필요한 중언부언 없이 핵심 메시지(Takeaway)를 강조하는 전달력 (실시간 질의응답력은 채점 제외)
 
 # Instructions
 - 모든 응답은 한국어로 작성한다.
