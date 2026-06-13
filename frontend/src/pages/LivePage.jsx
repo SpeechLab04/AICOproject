@@ -67,6 +67,7 @@ function LivePage() {
 
   const [ttsCache, setTtsCache] = useState({});
   const [ttsReady, setTtsReady] = useState(false);
+  const [isTtsPlaying, setIsTtsPlaying] = useState(false);
 
   // 페이지 진입 시 이전 분석 결과 초기화
   useEffect(() => {
@@ -522,11 +523,9 @@ function LivePage() {
 
     audio.playbackRate = 1.1;
 
-    audio.onplay = () =>
-      console.log("재생 시작");
-
-    audio.onerror = (e) =>
-      console.log("재생 실패", e);
+    audio.onplay = () => setIsTtsPlaying(true);
+    audio.onended = () => setIsTtsPlaying(false);
+    audio.onerror = (e) => { console.log("재생 실패", e); setIsTtsPlaying(false); };
 
     await audio.play();
   };
@@ -1118,13 +1117,13 @@ const stopAnswerRecording = () => {
 
                 <button
                   onClick={readQuestion}
-                  disabled={!ttsReady}
+                  disabled={!ttsReady || isTtsPlaying}
                   style={{
                     width: "100%",
-                    background: ttsReady
+                    background: ttsReady && !isTtsPlaying
                       ? "#E5F4EF"
                       : "#F1F5F9",
-                    color: ttsReady
+                    color: ttsReady && !isTtsPlaying
                       ? "#6BB5A6"
                       : "#94A3B8",
                     border: "none",
@@ -1132,7 +1131,7 @@ const stopAnswerRecording = () => {
                     borderRadius: "18px",
                     fontWeight: "800",
                     marginBottom: "18px",
-                    cursor: ttsReady
+                    cursor: ttsReady && !isTtsPlaying
                       ? "pointer"
                       : "not-allowed",
                     opacity: ttsReady ? 1 : 0.7,
@@ -1146,9 +1145,11 @@ const stopAnswerRecording = () => {
                     }}
                   />
 
-                  {ttsReady
-                    ? "질문 읽기"
-                    : "음성 준비중..."}
+                  {isTtsPlaying
+                    ? "재생 중..."
+                    : ttsReady
+                      ? "질문 읽기"
+                      : "음성 준비중..."}
                 </button>
 
                 <div

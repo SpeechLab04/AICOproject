@@ -117,26 +117,37 @@ async def check_camera_frame(file: UploadFile = File(...)):
         chin_y      = lm[152].y  # 턱 y좌표 (0=상단, 1=하단)
         forehead_y  = lm[10].y   # 이마 y좌표
 
+        # 고개 방향 계산 (좌우 회전): 코가 얼굴 중심에서 얼마나 벗어났는지
+        face_center_x = (face_left + face_right) / 2
+        face_width_val = abs(face_right - face_left)
+        nose_offset = round((nose_x - face_center_x) / face_width_val, 3) if face_width_val > 0 else 0.0
+        if nose_offset > 0.08:
+            head_turn = "right"
+        elif nose_offset < -0.08:
+            head_turn = "left"
+        else:
+            head_turn = "front"
+
         FACE_TOO_CLOSE = 0.28  # 얼굴이 프레임 너비의 28% 이상이면 너무 가까움
         FACE_TOO_FAR   = 0.07  # 7% 이하면 너무 멀음
 
         # 얼굴이 중앙에서 너무 벗어난 경우
         if abs(nose_x - 0.5) > 0.18:
-            return {"is_valid": False, "distance": "중앙 벗어남", "suggestion": "몸을 가이드라인 안 중앙으로 이동해주세요.", "face_ratio": round(face_ratio, 3)}
+            return {"is_valid": False, "distance": "중앙 벗어남", "suggestion": "몸을 가이드라인 안 중앙으로 이동해주세요.", "face_ratio": round(face_ratio, 3), "nose_offset": nose_offset, "head_turn": head_turn}
 
         # 턱이 화면 60% 아래 → 얼굴만 클로즈업된 상태 → 상반신 안 보임
         if chin_y > 0.62:
-            return {"is_valid": False, "distance": "너무 가까움", "suggestion": "상반신이 보이도록 1~2m 거리를 유지해 주세요.", "face_ratio": round(face_ratio, 3)}
+            return {"is_valid": False, "distance": "너무 가까움", "suggestion": "상반신이 보이도록 1~2m 거리를 유지해 주세요.", "face_ratio": round(face_ratio, 3), "nose_offset": nose_offset, "head_turn": head_turn}
 
         if face_ratio > FACE_TOO_CLOSE:
-            return {"is_valid": False, "distance": "너무 가까움", "suggestion": "상반신이 보이도록 1~2m 거리를 유지해 주세요.", "face_ratio": round(face_ratio, 3)}
+            return {"is_valid": False, "distance": "너무 가까움", "suggestion": "상반신이 보이도록 1~2m 거리를 유지해 주세요.", "face_ratio": round(face_ratio, 3), "nose_offset": nose_offset, "head_turn": head_turn}
         elif face_ratio < FACE_TOO_FAR:
-            return {"is_valid": False, "distance": "너무 멀음", "suggestion": "카메라에 조금 더 가까이 다가와 주세요. 1~2m 거리를 유지해 주세요.", "face_ratio": round(face_ratio, 3)}
+            return {"is_valid": False, "distance": "너무 멀음", "suggestion": "카메라에 조금 더 가까이 다가와 주세요. 1~2m 거리를 유지해 주세요.", "face_ratio": round(face_ratio, 3), "nose_offset": nose_offset, "head_turn": head_turn}
         # 거리는 적당하지만 얼굴이 화면 너무 아래 → 상반신이 가이드라인 안에 안 들어옴
         elif forehead_y > 0.30:
-            return {"is_valid": False, "distance": "위치 조정", "suggestion": "상반신이 가이드라인 안에 들어오도록 위로 올려주세요.", "face_ratio": round(face_ratio, 3)}
+            return {"is_valid": False, "distance": "위치 조정", "suggestion": "상반신이 가이드라인 안에 들어오도록 위로 올려주세요.", "face_ratio": round(face_ratio, 3), "nose_offset": nose_offset, "head_turn": head_turn}
         else:
-            return {"is_valid": True, "distance": "적당", "suggestion": "좋아요! 발표를 시작할 수 있습니다.", "face_ratio": round(face_ratio, 3)}
+            return {"is_valid": True, "distance": "적당", "suggestion": "좋아요! 발표를 시작할 수 있습니다.", "face_ratio": round(face_ratio, 3), "nose_offset": nose_offset, "head_turn": head_turn}
 
 
 @app.post("/upload")

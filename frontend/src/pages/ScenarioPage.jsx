@@ -112,6 +112,50 @@ function ScenarioPage() {
           </p>
         </div>
 
+        {/* 튜토리얼 배너 */}
+        <div
+          style={{
+            maxWidth: "700px",
+            margin: "0 auto 28px",
+            background: "white",
+            borderRadius: "20px",
+            padding: isMobile ? "18px 20px" : "20px 28px",
+            border: "1.5px solid #C8E4D6",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "16px",
+            boxShadow: "0 4px 12px rgba(107,181,166,0.08)",
+          }}
+        >
+          <div>
+            <div style={{ fontSize: isMobile ? "13px" : "14px", fontWeight: "800", color: "#2D3A3A", marginBottom: "4px" }}>
+              🎓 처음 사용하시나요?
+            </div>
+            <div style={{ fontSize: isMobile ? "12px" : "13px", color: "#58706D", wordBreak: "keep-all", lineHeight: "1.5" }}>
+              카메라 위치, 시선, 손동작, 표정을 미리 연습해보세요.
+            </div>
+          </div>
+          <button
+            onClick={() => navigate("/tutorial")}
+            style={{
+              background: "#6BB5A6",
+              color: "white",
+              padding: isMobile ? "10px 16px" : "11px 20px",
+              borderRadius: "12px",
+              fontSize: isMobile ? "13px" : "14px",
+              fontWeight: "700",
+              border: "none",
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+              flexShrink: 0,
+              boxShadow: "0 4px 10px rgba(107,181,166,0.25)",
+            }}
+          >
+            튜토리얼 →
+          </button>
+        </div>
+
         {/* 시나리오 카드 영역 */}
         <div
           style={{

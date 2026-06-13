@@ -14,6 +14,7 @@ import ScenarioDetailPage from "./pages/ScenarioDetailPage";
 import PresentationSetupPage from "./pages/PresentationSetupPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ResourcesPage from "./pages/ResourcesPage";
+import TutorialPage from "./pages/TutorialPage";
 
 function App() {
   return (
@@ -32,6 +33,7 @@ function App() {
         <Route path="/mypage" element={<ProtectedRoute><MyPage /></ProtectedRoute>} />
         <Route path="/records" element={<ProtectedRoute><RecordsPage /></ProtectedRoute>} />
         <Route path="/resources" element={<ResourcesPage />} />
+        <Route path="/tutorial" element={<TutorialPage />} />
       </Routes>
     </BrowserRouter>
   );

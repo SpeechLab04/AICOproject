@@ -93,7 +93,7 @@ function LoginPage() {
       localStorage.setItem("aicoUser", JSON.stringify(userData));
 
       alert("로그인되었습니다.");
-      navigate("/scenario");
+      navigate("/");
 
     } catch (error) {
       console.error(error);
