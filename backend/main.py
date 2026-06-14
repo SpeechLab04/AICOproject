@@ -128,26 +128,51 @@ async def check_camera_frame(file: UploadFile = File(...)):
         else:
             head_turn = "front"
 
+        # 미소 감지: 입꼬리(61, 291)가 입술 중심(13, 14)보다 올라가면 smile
+        avg_corner_y  = (lm[61].y + lm[291].y) / 2
+        lip_center_y  = (lm[13].y  + lm[14].y)  / 2
+        face_height   = abs(lm[152].y - lm[10].y)
+        smile_ratio   = (lip_center_y - avg_corner_y) / face_height if face_height > 0 else 0.0
+        smile         = bool(smile_ratio > 0.015)
+
+        # 손 제스처 감지 (pointing / palm)
+        with mp.solutions.hands.Hands(
+            static_image_mode=True, max_num_hands=1, min_detection_confidence=0.5,
+        ) as hands_det:
+            h_result = hands_det.process(rgb)
+        gesture = None
+        if h_result.multi_hand_landmarks:
+            h     = h_result.multi_hand_landmarks[0].landmark
+            idx   = h[8].y  < h[6].y
+            mid   = h[12].y < h[10].y
+            ring  = h[16].y < h[14].y
+            pinky = h[20].y < h[18].y
+            ext   = sum([idx, mid, ring, pinky])
+            if idx and not mid and not ring and not pinky:
+                gesture = "pointing"
+            elif ext >= 4:
+                gesture = "palm"
+
         FACE_TOO_CLOSE = 0.28  # 얼굴이 프레임 너비의 28% 이상이면 너무 가까움
         FACE_TOO_FAR   = 0.07  # 7% 이하면 너무 멀음
 
         # 얼굴이 중앙에서 너무 벗어난 경우
         if abs(nose_x - 0.5) > 0.18:
-            return {"is_valid": False, "distance": "중앙 벗어남", "suggestion": "몸을 가이드라인 안 중앙으로 이동해주세요.", "face_ratio": round(face_ratio, 3), "nose_offset": nose_offset, "head_turn": head_turn}
+            return {"is_valid": False, "distance": "중앙 벗어남", "suggestion": "몸을 가이드라인 안 중앙으로 이동해주세요.", "face_ratio": round(face_ratio, 3), "nose_offset": nose_offset, "head_turn": head_turn, "smile": smile, "gesture": gesture}
 
         # 턱이 화면 60% 아래 → 얼굴만 클로즈업된 상태 → 상반신 안 보임
         if chin_y > 0.62:
-            return {"is_valid": False, "distance": "너무 가까움", "suggestion": "상반신이 보이도록 1~2m 거리를 유지해 주세요.", "face_ratio": round(face_ratio, 3), "nose_offset": nose_offset, "head_turn": head_turn}
+            return {"is_valid": False, "distance": "너무 가까움", "suggestion": "상반신이 보이도록 1~2m 거리를 유지해 주세요.", "face_ratio": round(face_ratio, 3), "nose_offset": nose_offset, "head_turn": head_turn, "smile": smile, "gesture": gesture}
 
         if face_ratio > FACE_TOO_CLOSE:
-            return {"is_valid": False, "distance": "너무 가까움", "suggestion": "상반신이 보이도록 1~2m 거리를 유지해 주세요.", "face_ratio": round(face_ratio, 3), "nose_offset": nose_offset, "head_turn": head_turn}
+            return {"is_valid": False, "distance": "너무 가까움", "suggestion": "상반신이 보이도록 1~2m 거리를 유지해 주세요.", "face_ratio": round(face_ratio, 3), "nose_offset": nose_offset, "head_turn": head_turn, "smile": smile, "gesture": gesture}
         elif face_ratio < FACE_TOO_FAR:
-            return {"is_valid": False, "distance": "너무 멀음", "suggestion": "카메라에 조금 더 가까이 다가와 주세요. 1~2m 거리를 유지해 주세요.", "face_ratio": round(face_ratio, 3), "nose_offset": nose_offset, "head_turn": head_turn}
+            return {"is_valid": False, "distance": "너무 멀음", "suggestion": "카메라에 조금 더 가까이 다가와 주세요. 1~2m 거리를 유지해 주세요.", "face_ratio": round(face_ratio, 3), "nose_offset": nose_offset, "head_turn": head_turn, "smile": smile, "gesture": gesture}
         # 거리는 적당하지만 얼굴이 화면 너무 아래 → 상반신이 가이드라인 안에 안 들어옴
         elif forehead_y > 0.30:
-            return {"is_valid": False, "distance": "위치 조정", "suggestion": "상반신이 가이드라인 안에 들어오도록 위로 올려주세요.", "face_ratio": round(face_ratio, 3), "nose_offset": nose_offset, "head_turn": head_turn}
+            return {"is_valid": False, "distance": "위치 조정", "suggestion": "상반신이 가이드라인 안에 들어오도록 위로 올려주세요.", "face_ratio": round(face_ratio, 3), "nose_offset": nose_offset, "head_turn": head_turn, "smile": smile, "gesture": gesture}
         else:
-            return {"is_valid": True, "distance": "적당", "suggestion": "좋아요! 발표를 시작할 수 있습니다.", "face_ratio": round(face_ratio, 3), "nose_offset": nose_offset, "head_turn": head_turn}
+            return {"is_valid": True, "distance": "적당", "suggestion": "좋아요! 발표를 시작할 수 있습니다.", "face_ratio": round(face_ratio, 3), "nose_offset": nose_offset, "head_turn": head_turn, "smile": smile, "gesture": gesture}
 
 
 @app.post("/upload")
