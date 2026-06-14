@@ -85,6 +85,26 @@ function ChopHandSvg({ mirrorX }) {
   );
 }
 
+// 검지 포인팅 SVG
+function PointingSvg() {
+  return (
+    <svg viewBox="0 0 70 115" fill="none" style={{ width: "50px", height: "82px" }}>
+      {/* 손바닥 */}
+      <rect x="8"  y="52" width="54" height="52" rx="14" fill="#F5C9A0" stroke="#C08060" strokeWidth="2.5"/>
+      {/* 엄지 - 왼쪽 */}
+      <ellipse cx="5" cy="68" rx="8" ry="13" fill="#F5C9A0" stroke="#C08060" strokeWidth="2.5"/>
+      {/* 검지 - 펴짐 (엄지 바로 옆) */}
+      <rect x="13" y="6"  width="11" height="52" rx="6"   fill="#F5C9A0" stroke="#C08060" strokeWidth="2"/>
+      {/* 중지 - 접힘 */}
+      <rect x="27" y="44" width="11" height="16" rx="5.5" fill="#F5C9A0" stroke="#C08060" strokeWidth="2"/>
+      {/* 약지 - 접힘 */}
+      <rect x="40" y="46" width="10" height="14" rx="5"   fill="#F5C9A0" stroke="#C08060" strokeWidth="2"/>
+      {/* 소지 - 접힘 */}
+      <rect x="52" y="48" width="9"  height="12" rx="4.5" fill="#F5C9A0" stroke="#C08060" strokeWidth="2"/>
+    </svg>
+  );
+}
+
 function GestureDemo({ type }) {
   if (type === "fist") {
     return (
@@ -124,6 +144,52 @@ function GestureDemo({ type }) {
         <div style={{ display: "flex", justifyContent: "center", marginBottom: "10px" }}>
           <div style={{ display: "flex", gap: "20px", animation: "tut-divide 3.6s ease-in-out infinite" }}>
             <OpenHandSvg thumbLeft={false} />
+            <OpenHandSvg thumbLeft={true} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+  if (type === "pointing") {
+    return (
+      <div style={demoBoxStyle}>
+        <style>{`
+          @keyframes tut-point {
+            0%,10%  { transform: translateX(0); }
+            30%     { transform: translateX(22px); }
+            50%,60% { transform: translateX(0); }
+            80%     { transform: translateX(-22px); }
+            100%    { transform: translateX(0); }
+          }
+        `}</style>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: "10px" }}>
+          <div style={{ animation: "tut-point 2.4s ease-in-out infinite" }}>
+            <PointingSvg />
+          </div>
+        </div>
+      </div>
+    );
+  }
+  if (type === "palm") {
+    return (
+      <div style={demoBoxStyle}>
+        <style>{`
+          @keyframes tut-palm-l {
+            0%,15%  { transform: translate(-10px, 0) rotate(-4deg); }
+            40%,55% { transform: translate(-22px, -10px) rotate(-14deg); }
+            75%,100%{ transform: translate(-10px, 0) rotate(-4deg); }
+          }
+          @keyframes tut-palm-r {
+            0%,15%  { transform: translate(10px, 0) rotate(4deg); }
+            40%,55% { transform: translate(22px, -10px) rotate(14deg); }
+            75%,100%{ transform: translate(10px, 0) rotate(4deg); }
+          }
+        `}</style>
+        <div style={{ display: "flex", justifyContent: "center", gap: "8px", marginBottom: "10px" }}>
+          <div style={{ animation: "tut-palm-l 2.4s ease-in-out infinite" }}>
+            <OpenHandSvg thumbLeft={false} />
+          </div>
+          <div style={{ animation: "tut-palm-r 2.4s ease-in-out infinite" }}>
             <OpenHandSvg thumbLeft={true} />
           </div>
         </div>
@@ -232,13 +298,39 @@ const STEPS = [
     visual: "openhand",
   },
   {
+    id: "gesture3",
+    title: "가리키기 제스처",
+    subtitle: "손동작 연습",
+    emoji: "☝️",
+    instruction: "자료나 화면을 설명할 때 쓰는 제스처예요.\n검지 손가락만 펴서 설명할 내용을 가리켜보세요.",
+    tip: "슬라이드 내용을 짚거나 강조 포인트를 설명할 때 자연스럽게 활용해요.",
+    autoDetect: true,
+    detectGesture: "pointing",
+    detectTurn: null,
+    visual: "pointing",
+  },
+  {
+    id: "gesture4",
+    title: "설명 제스처",
+    subtitle: "손동작 연습",
+    emoji: "🤲",
+    instruction: "내용을 자연스럽게 풀어서 설명할 때 쓰는 제스처예요.\n양 손바닥을 펼쳐서 청중 쪽으로 자연스럽게 벌려보세요.",
+    tip: '"이런 방식으로..." 하면서 손바닥을 펼치면 청중이 내용을 더 잘 받아들여요.',
+    autoDetect: true,
+    detectGesture: "palm",
+    detectTurn: null,
+    visual: "palm",
+  },
+  {
     id: "smile",
     title: "미소 짓기",
     subtitle: "표정 연습",
     emoji: "😄",
     instruction: "발표 중 자연스러운 미소는 청중에게 좋은 인상을 줘요.\n카메라를 보며 자연스럽게 미소 지어보세요.",
-    tip: "억지 웃음보다 편안한 표정이 훨씬 좋아요.",
-    autoDetect: false,
+    tip: "억지 웃음보다 편안한 표정이 훨씬 좋아요. 입꼬리가 살짝 올라가는 정도면 충분해요!",
+    autoDetect: true,
+    detectSmile: true,
+    detectTurn: null,
   },
   {
     id: "voice",
@@ -329,7 +421,11 @@ function TutorialPage() {
         });
         const data = await res.json();
 
-        const detected = currentStep.detectTurn
+        const detected = currentStep.detectGesture
+          ? data.gesture === currentStep.detectGesture
+          : currentStep.detectSmile
+          ? data.smile === true
+          : currentStep.detectTurn
           ? data.head_turn === currentStep.detectTurn
           : data.is_valid;
 
@@ -618,6 +714,12 @@ function TutorialPage() {
                 }}>
                   {cameraOk
                     ? `✅ 감지됨! 유지해주세요... (${holdCount}/2)`
+                    : step.detectGesture === "pointing"
+                    ? "☝️ 검지 손가락만 펴서 카메라에 보여주세요"
+                    : step.detectGesture === "palm"
+                    ? "🤲 손바닥을 펼쳐서 카메라에 보여주세요"
+                    : step.detectSmile
+                    ? "😊 자연스럽게 미소 지어주세요"
                     : step.detectTurn === "right"
                     ? "➡️ 오른쪽으로 고개를 돌려주세요"
                     : step.detectTurn === "left"
@@ -692,7 +794,13 @@ function TutorialPage() {
                 fontSize: "13px",
                 lineHeight: "1.7",
               }}>
-                {step.detectTurn === "right"
+                {step.detectGesture === "pointing"
+                  ? "검지만 펴진 손이 감지되면\n2번 연속 인식되면 자동으로 넘어갑니다"
+                  : step.detectGesture === "palm"
+                  ? "손바닥이 펼쳐진 손이 감지되면\n2번 연속 인식되면 자동으로 넘어갑니다"
+                  : step.detectSmile
+                  ? "미소가 감지되면\n2번 연속 인식되면 자동으로 넘어갑니다"
+                  : step.detectTurn === "right"
                   ? "오른쪽으로 고개를 돌리고\n2번 연속 감지되면 자동으로 넘어갑니다"
                   : step.detectTurn === "left"
                   ? "왼쪽으로 고개를 돌리고\n2번 연속 감지되면 자동으로 넘어갑니다"
