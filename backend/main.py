@@ -308,7 +308,7 @@ async def upload_video(
             content_critique=ai_result.get("content_critique", "내용 비평 데이터가 존재하지 않습니다."),
             title=presentation_topic.strip() if presentation_topic and presentation_topic.strip() else None,
             scenario_id=scenario_id or None,
-            video_url=f"http://127.0.0.1:8000/uploads/{unique_name}",
+            video_url=f"{os.environ.get('BASE_URL', 'http://127.0.0.1:8000')}/uploads/{unique_name}",
             
             persona_questions=ai_result.get("persona_questions", []),
             strength=content_feedback.get("strength", ""),
@@ -338,7 +338,7 @@ async def upload_video(
             "record_id": new_record.id,
             "title": new_record.title,
             "filename": file.filename,
-            "video_url": f"http://127.0.0.1:8000/uploads/{unique_name}",
+            "video_url": f"{os.environ.get('BASE_URL', 'http://127.0.0.1:8000')}/uploads/{unique_name}",
             "total_score": final_score,
             "summary": ai_result.get(
                 "summary",

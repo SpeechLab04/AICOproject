@@ -117,6 +117,8 @@ function ResourcesPage() {
                     fontWeight: "700",
                     padding: "3px 10px",
                     borderRadius: "999px",
+                    whiteSpace: "nowrap",
+                    flexShrink: 0,
                     background: item.category === "tip" ? "#E5F4EF" : "#E3F1FF",
                     color: item.category === "tip" ? "#4D8F82" : "#4E9CDC",
                   }}>
