@@ -209,20 +209,26 @@ async def upload_video(
 
         # webm → mp4 변환 (실시간 녹화 영상 대응) — 음성/영상 병렬 분석 전 미리 수행
         analyze_path = file_path
+        video_name = unique_name
         if file_path.endswith('.webm'):
             import subprocess
             mp4_path = file_path.replace('.webm', '.mp4')
+            mp4_name = unique_name.replace('.webm', '.mp4')
             cmd = ['ffmpeg', '-y', '-i', file_path, mp4_path]
             conv = subprocess.run(cmd, capture_output=True, text=True)
             if conv.returncode == 0:
                 analyze_path = mp4_path
+                video_name = mp4_name
 
         # 음성 분석 + 영상 분석 병렬 실행
+        import time as _t
+        t0 = _t.time()
         loop = asyncio.get_event_loop()
         speech_result, vision_result = await asyncio.gather(
             loop.run_in_executor(None, process_voice_analysis, file, background_tasks),
             loop.run_in_executor(None, analyze_vision, analyze_path),
         )
+        print(f"[TIMER] 음성+영상 분석: {_t.time()-t0:.1f}s", flush=True)
 
         if not speech_result.get("success"):
             raise HTTPException(
@@ -287,6 +293,7 @@ async def upload_video(
             }
 
         # 음성·영상 완료 후 내용 분석 실행
+        t1 = _t.time()
         ai_result = await get_ai_presentation_feedback(
             script=script_text,
             selected_personas=parsed_personas,
@@ -294,6 +301,7 @@ async def upload_video(
             material=presentation_material,
             presentation_script=presentation_script_text,
         )
+        print(f"[TIMER] AI 피드백: {_t.time()-t1:.1f}s", flush=True)
         content_feedback = ai_result.get("content_feedback", {})
         content_score = ai_result.get("content_score", 0)
         delivery_score = vision_result.get("delivery_score", 0)
@@ -308,7 +316,7 @@ async def upload_video(
             content_critique=ai_result.get("content_critique", "내용 비평 데이터가 존재하지 않습니다."),
             title=presentation_topic.strip() if presentation_topic and presentation_topic.strip() else None,
             scenario_id=scenario_id or None,
-            video_url=f"{os.environ.get('BASE_URL', 'http://127.0.0.1:8000')}/uploads/{unique_name}",
+            video_url=f"{os.environ.get('BASE_URL', 'http://127.0.0.1:8000')}/uploads/{video_name}",
             
             persona_questions=ai_result.get("persona_questions", []),
             strength=content_feedback.get("strength", ""),
@@ -338,7 +346,7 @@ async def upload_video(
             "record_id": new_record.id,
             "title": new_record.title,
             "filename": file.filename,
-            "video_url": f"{os.environ.get('BASE_URL', 'http://127.0.0.1:8000')}/uploads/{unique_name}",
+            "video_url": f"{os.environ.get('BASE_URL', 'http://127.0.0.1:8000')}/uploads/{video_name}",
             "total_score": final_score,
             "summary": ai_result.get(
                 "summary",
