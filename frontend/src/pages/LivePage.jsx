@@ -132,7 +132,7 @@ function LivePage() {
         const formData = new FormData();
         formData.append("file", blob, "frame.jpg");
         try {
-          const res = await fetch("http://127.0.0.1:8000/check-camera", {
+          const res = await fetch(`${import.meta.env.VITE_API_URL}/check-camera`, {
             method: "POST",
             body: formData,
           });
@@ -245,7 +245,8 @@ function LivePage() {
     const stream = streamRef.current;
     if (!stream) return;
 
-    const ws = new WebSocket("ws://127.0.0.1:8000/ws/audio");
+    const wsUrl = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/^http/, "ws");
+    const ws = new WebSocket(`${wsUrl}/ws/audio`);
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -317,7 +318,7 @@ function LivePage() {
       );
 
       const response = await fetch(
-        "http://127.0.0.1:8000/realtime/generate-questions",
+        `${import.meta.env.VITE_API_URL}/realtime/generate-questions`,
         {
           method: "POST",
           body: formData,
@@ -404,7 +405,7 @@ function LivePage() {
 
     const token = localStorage.getItem("token");
 
-    fetch("http://127.0.0.1:8000/upload", {
+    fetch(`${import.meta.env.VITE_API_URL}/upload`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -465,7 +466,7 @@ function LivePage() {
       try {
 
         const res = await fetch(
-          "http://127.0.0.1:8000/tts-question",
+          `${import.meta.env.VITE_API_URL}/tts-question`,
           {
             method: "POST",
             headers: {
@@ -584,7 +585,7 @@ const stopAnswerRecording = () => {
     );
 
     const res = await fetch(
-      "http://127.0.0.1:8000/stt-answer",
+      `${import.meta.env.VITE_API_URL}/stt-answer`,
       {
         method: "POST",
         body: formData,
