@@ -1,7 +1,23 @@
-# AICO — AI 발표 코칭
+# 🎤 AICO — AI 발표 코칭
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python"/>
+  <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI"/>
+  <img src="https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=white" alt="React"/>
+  <img src="https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite"/><br/>
+  <img src="https://img.shields.io/badge/OpenAI-GPT--4o--mini-412991?style=for-the-badge" alt="OpenAI"/>
+  <img src="https://img.shields.io/badge/Whisper-STT-412991?style=for-the-badge" alt="Whisper"/>
+  <img src="https://img.shields.io/badge/MediaPipe-0097A7?style=for-the-badge&logo=mediapipe&logoColor=white" alt="MediaPipe"/>
+  <img src="https://img.shields.io/badge/OpenCV-5C3EE8?style=for-the-badge&logo=opencv&logoColor=white" alt="OpenCV"/><br/>
+  <img src="https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite"/>
+  <img src="https://img.shields.io/badge/SQLAlchemy-D71F00?style=for-the-badge&logo=sqlalchemy&logoColor=white" alt="SQLAlchemy"/>
+  <img src="https://img.shields.io/badge/JWT-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white" alt="JWT"/>
+</p>
 
 > 발표 영상을 올리거나 실시간으로 발표하면, AI가 **내용·목소리·태도**를 분석해 점수와 피드백을 주고
 > 교수님 성향별 **예상 질문**까지 던져 주는 발표 연습 서비스입니다.
+>
+> 🔗 팀: [SpeechLab04](https://github.com/SpeechLab04)
 
 혼자 발표를 연습하면 무엇이 부족한지 알기 어렵습니다. AICO는 발표 대본, 말하는 속도와 억양, 시선과 표정, 손동작을 함께 보고 "어디를 어떻게 고치면 되는지"를 알려 줍니다.
 
