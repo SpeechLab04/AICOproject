@@ -214,7 +214,7 @@ npm run dev
 
 | 이름 | GitHub | 담당 |
 |---|---|---|
-| 박수연 | [@suyeon040610](https://github.com/suyeon040610) | 프론트엔드 화면, 서버 API 통합 |
+| 박수연 | [@suyeon040610](https://github.com/suyeon040610) | React 프론트엔드 · 분석 대시보드, 멀티모달 분석 파이프라인 통합(비동기 처리), AWS 배포 |
 | 고혜민 | [@gohyemin0112](https://github.com/gohyemin0112) | 영상 분석 (고개 방향·표정·시선·손동작) |
 | 문지수 | [@jessjessjes](https://github.com/jessjessjes) | 음성 분석 (STT·속도·억양·습관어), 실시간 모드 |
 | 김지영 | [@yeong0128](https://github.com/yeong0128) | LLM 기반 발표 평가 엔진 · 페르소나 예상 질문 생성, 연습 기록 DB, JWT 인증 |
